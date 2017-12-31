@@ -1,7 +1,20 @@
 var dec = new TextDecoder();
+var enc = new TextEncoder();
 
-function bufStr(buf, ptr, end) {
+function bufToStr(buf, ptr, end) {
   return dec.decode(buf.slice(ptr, end));
+}
+
+function strToBuf(str, buf, off) {
+  var b = enc.encode(str);
+  buf.set(b, off);
+  return b.length;
+}
+
+function strToBufWithZero(str, buf, off) {
+  var len = strToBuf(str, buf, off);
+  buf[len] = 0;
+  return len + 1;
 }
 
 var stdout__buf = "";
