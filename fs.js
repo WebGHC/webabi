@@ -111,7 +111,7 @@ var fs = {
     // stdout is handled specially here, we may have a more robust solution
     // in the future that does not assume stdout is connected to console
     if (fd === 1) {
-      stdout__write(bufStr(buf, offset, offset + count));
+      stdout__write(bufToStr(buf, offset, offset + count));
       return count;
     } else {
       var b = utils.uint8Array2Buffer(buf);

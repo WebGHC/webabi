@@ -25,7 +25,7 @@ function heapStr(ptr) {
   if (end === -1) {
     throw "heapStr: expected a null-terminated string";
   }
-  return bufStr(heap_uint8, ptr, end);
+  return bufToStr(heap_uint8, ptr, end);
 }
 
 var nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
@@ -104,8 +104,24 @@ syscall_fns = {
   },
   11: {
     name: "SYS_execve",
-    fn: function() {
-      throw "SYS_execve NYI";
+    fn: function(filenamePtr, argvPtr, envpPtr) {
+      var filename = heapStr(filenamePtr);
+      var getStrings = function(p) {
+        var arr = [];
+
+        p /= Int32Array.BYTES_PER_ELEMENT;
+        while (heap_uint32[p]) {
+          arr.push(heapStr(heap_uint32[p]));
+          p += 1;
+        }
+
+        return arr;
+      };
+
+      execve(filename, getStrings(argvPtr), getStrings(envpPtr));
+
+      // terminate the caller
+      throw "SYS_execve success";
     }
   },
   12: {
@@ -2230,33 +2246,71 @@ var importObject = {
     __syscall5: syscall,
     __syscall6: syscall,
     __wasm_host_main: (argc, argv, envp) => inst.exports.main(argc, argv, envp),
-    setjmp: function() { throw "setjmp NYI"; },
-    longjmp: function() { throw "longjmp NYI"; }
+    setjmp: () => { throw "setjmp NYI"; },
+    longjmp: () => { throw "longjmp NYI"; }
   }
 }
 
-function fetchAndInstantiate(url, importObject) {
-  return fetch(url).then(response =>
-    response.arrayBuffer()
-  ).then(bytes =>
-    WebAssembly.instantiate(bytes, importObject)
-  ).then(results =>
-    results.instance
-  );
+function buildStringTable(strings, ptr) {
+  var tablePtr;
+  var elems = [];
+
+  // copy strings to memory
+  strings.forEach(s => {
+    elems.push(ptr);
+    ptr += strToBufWithZero(s, heap_uint8, ptr);
+  });
+
+  // build table
+  tablePtr = Math.ceil(ptr / Int32Array.BYTES_PER_ELEMENT);
+  for (var i = 0; i < elems.length; i++) {
+    heap_uint32[tablePtr + i] = elems[i];
+  }
+  heap_uint32[tablePtr + elems.length] = 0;
+
+  return (tablePtr * Int32Array.BYTES_PER_ELEMENT);
+}
+
+function runMain(instance, args, envs) {
+  // reserve an extra page for arguments and environment
+  // TODO: add logic to allocate more pages as needed
+  var m = instance.exports.memory;
+  var p = m.buffer.byteLength;
+  m.grow(1);
+  setMemory(m);
+
+  var argc = args.length;
+  var argv = buildStringTable(args, p);
+  var envp = buildStringTable(envs, argv + (argc + 1)*Int32Array.BYTES_PER_ELEMENT);
+  heap_uint32[0] = argc;
+  heap_uint32[1] = argv;
+  inst = instance;
+
+  return instance.exports._start();
+}
+
+async function fetchAndInstantiate(url, importObject) {
+  const response = await fetch(url);
+  const bytes = await response.arrayBuffer();
+  const results = await WebAssembly.instantiate(bytes, importObject);
+  return results.instance;
+}
+
+async function execve(url, args, envs) {
+  console.log('execve: ' + url + ' [' + args + '] [' + envs + ']');
+  try {
+    const instance = await fetchAndInstantiate(url, importObject);
+    var exitCode = runMain(instance, args, envs);
+    console.log('program exited with code: ' + exitCode);
+  } catch (e) {
+    console.log('program terminated: ' + e);
+  }
 }
 
 onmessage = function(msg) {
   if (msg.data.options && msg.data.options.debugSyscalls) {
     debugSyscalls = true;
   }
-  fetchAndInstantiate(msg.data.progName, importObject).then(function(instance) {
-    inst = instance;
-    try {
-      setMemory(instance.exports.memory);
 
-      console.log(instance.exports._start());
-    } catch (e) {
-      console.log(e);
-    }
-  });
+  execve(msg.data.progName, [msg.data.progName], []);
 }
