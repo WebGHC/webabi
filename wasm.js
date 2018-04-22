@@ -1562,7 +1562,10 @@ syscall_fns = {
   243: {
     name: "SYS_set_thread_area",
     fn: function() {
-      throw "SYS_set_thread_area NYI";
+      // TODO: Actually implement this somehow.
+      // It is stubbed here because `musl` calls it as a program starts.
+      console.log("warning: set_thread_area being ignored");
+      return 0;
     }
   },
   244: {
@@ -1646,7 +1649,10 @@ syscall_fns = {
   258: {
     name: "SYS_set_tid_address",
     fn: function() {
-      throw "SYS_set_tid_address NYI";
+      // TODO: Actually implement this somehow.
+      // It is stubbed here because `musl` calls it as a program starts.
+      console.log("warning: set_tid_address being ignored");
+      return 0;
     }
   },
   259: {
@@ -2211,6 +2217,8 @@ function syscall_(sys, addr) {
   return syscall(sys, heap_uint32[i], heap_uint32[i + 1], heap_uint32[i + 2], heap_uint32[i + 3], heap_uint32[i + 4], heap_uint32[i + 5]);
 }
 
+var inst;
+
 var importObject = {
   env: {
     __syscall: syscall_,
@@ -2220,7 +2228,10 @@ var importObject = {
     __syscall3: syscall,
     __syscall4: syscall,
     __syscall5: syscall,
-    __syscall6: syscall
+    __syscall6: syscall,
+    __wasm_host_main: (argc, argv, envp) => inst.exports.main(argc, argv, envp),
+    setjmp: function() { throw "setjmp NYI"; },
+    longjmp: function() { throw "longjmp NYI"; }
   }
 }
 
@@ -2239,10 +2250,11 @@ onmessage = function(msg) {
     debugSyscalls = true;
   }
   fetchAndInstantiate(msg.data.progName, importObject).then(function(instance) {
+    inst = instance;
     try {
       setMemory(instance.exports.memory);
 
-      console.log(instance.exports.main(300));
+      console.log(instance.exports._start());
     } catch (e) {
       console.log(e);
     }
