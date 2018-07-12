@@ -6,16 +6,24 @@ var heap_uint8;
 var heap_uint32;
 var debugSyscalls = false;
 
+// Track the end of memory
+// The end can be smaller than memory_size_pages * PAGE_SIZE
+// As munmap can de-allocate some memory
+// Since we cannot shrink the memory after allocation
+// We track the end using this.
+var memory_end;
+
 importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
 
 function heap_size_bytes() {
-  return memory_size_pages * PAGE_SIZE;
+  return memory_end;
 }
 
 function setMemory(m) {
   memory = m;
   heap = m.buffer;
   memory_size_pages = heap.byteLength / PAGE_SIZE;
+  memory_end = memory_size_pages * PAGE_SIZE;
   heap_uint8 = new Uint8Array(heap);
   heap_uint32 = new Uint32Array(heap);
 }
@@ -42,7 +50,7 @@ syscall_fns = {
   1: {
     name: "SYS_exit",
     fn: function() {
-      throw "SYS_exit NYI";
+      throw "Success! SYS_exit called";
     }
   },
   2: {
@@ -336,7 +344,7 @@ syscall_fns = {
   45: {
     name: "SYS_brk",
     fn: function(addr) {
-      var numPages = Math.ceil(addr / 65536);
+      var numPages = Math.ceil(addr / PAGE_SIZE);
       if (numPages > memory_size_pages) {
         memory.grow(numPages - memory_size_pages);
 
@@ -344,6 +352,9 @@ syscall_fns = {
 	// the `memory.buffer` reference the same? Either way, memory_size_pages
 	// needs to be updated.
         setMemory(memory);
+      } else if (addr > memory_end) {
+        // We have already allocated the memory
+        memory_end = addr;
       }
       return heap_size_bytes();
     }
@@ -629,8 +640,14 @@ syscall_fns = {
   },
   91: {
     name: "SYS_munmap",
-    fn: function() {
-      throw "SYS_munmap NYI";
+    fn: function(addr, len) {
+      if ((addr + len) === heap_size_bytes()) {
+        // Remove memory from end
+        memory_end = addr;
+      } else {
+        console.log("warning: SYS_munmap being ignored");
+      }
+      return 0;
     }
   },
   92: {
@@ -779,7 +796,9 @@ syscall_fns = {
   116: {
     name: "SYS_sysinfo",
     fn: function() {
-      throw "SYS_sysinfo NYI";
+      console.log("warning: SYS_sysinfo being ignored");
+      return 0;
+      // throw "SYS_sysinfo NYI";
     }
   },
   117: {
@@ -1131,7 +1150,10 @@ syscall_fns = {
   168: {
     name: "SYS_poll",
     fn: function() {
-      throw "SYS_poll NYI";
+      // fdReady from base calls poll to check if FD is ready
+      // We assume it is and return a positive value
+      console.log("warning: SYS_poll returning 1");
+      return 1;
     }
   },
   169: {
@@ -1167,13 +1189,15 @@ syscall_fns = {
   174: {
     name: "SYS_rt_sigaction",
     fn: function() {
-      throw "SYS_rt_sigaction NYI";
+      console.log("warning: rt_sigaction being ignored");
+      return 0;
     }
   },
   175: {
     name: "SYS_rt_sigprocmask",
     fn: function() {
-      throw "SYS_rt_sigprocmask NYI";
+      console.log("warning: rt_sigprocmask being ignored");
+      return 0;
     }
   },
   176: {
@@ -1276,8 +1300,22 @@ syscall_fns = {
   },
   192: {
     name: "SYS_mmap2",
-    fn: function() {
-      throw "SYS_mmap2 NYI";
+    fn: function(addr, len, prot, flags, fd, offset) {
+      // Ignore prot and flags
+      var currentSize = heap_size_bytes();
+      if ((fd === -1) && (offset === 0)
+          && ((addr === 0) || (addr === currentSize))) {
+        var newSize = syscall(45 // SYS_brk
+                              , currentSize + len);
+        return currentSize;
+
+      } else {
+        throw ("SYS_mmap2 NYI: "
+               + addr + ", "
+               + len + ", "
+               + fd + ", "
+               + offset + ", ");
+      }
     }
   },
   193: {
@@ -1629,7 +1667,8 @@ syscall_fns = {
   252: {
     name: "SYS_exit_group",
     fn: function() {
-      throw "SYS_exit_group NYI";
+      console.log("warning: SYS_exit_group being ignored");
+      return 0;
     }
   },
   253: {
@@ -1674,13 +1713,15 @@ syscall_fns = {
   259: {
     name: "SYS_timer_create",
     fn: function() {
-      throw "SYS_timer_create NYI";
+      console.log("warning: timer_create being ignored");
+      return 0;
     }
   },
   260: {
     name: "SYS_timer_settime",
     fn: function() {
-      throw "SYS_timer_settime NYI";
+      console.log("warning: SYS_timer_settime being ignored");
+      return 0;
     }
   },
   261: {
@@ -1698,7 +1739,8 @@ syscall_fns = {
   263: {
     name: "SYS_timer_delete",
     fn: function() {
-      throw "SYS_timer_delete NYI";
+      console.log("warning: SYS_timer_delete being ignored");
+      return 0;
     }
   },
   264: {
@@ -1709,8 +1751,15 @@ syscall_fns = {
   },
   265: {
     name: "SYS_clock_gettime",
-    fn: function() {
-      throw "SYS_clock_gettime NYI";
+    fn: function(clockid, timespec_) {
+      // Ignore clockid
+      var milliseconds = Date.now();
+      var seconds = Math.floor(milliseconds/1000);
+      var nanoseconds = (milliseconds % 1000) * 1000 * 1000;
+      var ptr = timespec_ / 4;
+      heap_uint32[ptr] = seconds;
+      heap_uint32[ptr + 1] = nanoseconds;
+      return 0;
     }
   },
   266: {
