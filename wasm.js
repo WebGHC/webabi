@@ -36,7 +36,7 @@ function heapStr(ptr) {
   return bufToStr(heap_uint8, ptr, end);
 }
 
-var nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+// var nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
 syscall_fns = {
   // Generted using the following command:
@@ -50,7 +50,7 @@ syscall_fns = {
   1: {
     name: "SYS_exit",
     fn: function() {
-      throw "SYS_exit NYI";
+      throw "Success! SYS_exit called";
     }
   },
   2: {
@@ -796,7 +796,9 @@ syscall_fns = {
   116: {
     name: "SYS_sysinfo",
     fn: function() {
-      throw "SYS_sysinfo NYI";
+      console.log("warning: SYS_sysinfo being ignored");
+      return 0;
+      // throw "SYS_sysinfo NYI";
     }
   },
   117: {
@@ -1111,7 +1113,7 @@ syscall_fns = {
     fn: function(req, ret) {
       var seconds = heap_uint32[req / Int32Array.BYTES_PER_ELEMENT];
       var nanoseconds = heap_uint32[(req / Int32Array.BYTES_PER_ELEMENT) + 1];
-      Atomics.wait(nanosleepWaiter, 0, 0, seconds * 1000 + nanoseconds / 1000000);
+      // Atomics.wait(nanosleepWaiter, 0, 0, seconds * 1000 + nanoseconds / 1000000);
       return 0;
     }
   },
@@ -1148,7 +1150,10 @@ syscall_fns = {
   168: {
     name: "SYS_poll",
     fn: function() {
-      throw "SYS_poll NYI";
+      // fdReady from base calls poll to check if FD is ready
+      // We assume it is and return a positive value
+      console.log("warning: SYS_poll returning 1");
+      return 1;
     }
   },
   169: {
@@ -1184,13 +1189,15 @@ syscall_fns = {
   174: {
     name: "SYS_rt_sigaction",
     fn: function() {
-      throw "SYS_rt_sigaction NYI";
+      console.log("warning: rt_sigaction being ignored");
+      return 0;
     }
   },
   175: {
     name: "SYS_rt_sigprocmask",
     fn: function() {
-      throw "SYS_rt_sigprocmask NYI";
+      console.log("warning: rt_sigprocmask being ignored");
+      return 0;
     }
   },
   176: {
@@ -1660,7 +1667,8 @@ syscall_fns = {
   252: {
     name: "SYS_exit_group",
     fn: function() {
-      throw "SYS_exit_group NYI";
+      console.log("warning: SYS_exit_group being ignored");
+      return 0;
     }
   },
   253: {
@@ -1705,13 +1713,15 @@ syscall_fns = {
   259: {
     name: "SYS_timer_create",
     fn: function() {
-      throw "SYS_timer_create NYI";
+      console.log("warning: timer_create being ignored");
+      return 0;
     }
   },
   260: {
     name: "SYS_timer_settime",
     fn: function() {
-      throw "SYS_timer_settime NYI";
+      console.log("warning: SYS_timer_settime being ignored");
+      return 0;
     }
   },
   261: {
@@ -1729,7 +1739,8 @@ syscall_fns = {
   263: {
     name: "SYS_timer_delete",
     fn: function() {
-      throw "SYS_timer_delete NYI";
+      console.log("warning: SYS_timer_delete being ignored");
+      return 0;
     }
   },
   264: {
