@@ -36,7 +36,7 @@ function heapStr(ptr) {
   return bufToStr(heap_uint8, ptr, end);
 }
 
-// var nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+var nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
 syscall_fns = {
   // Generted using the following command:
@@ -1113,7 +1113,7 @@ syscall_fns = {
     fn: function(req, ret) {
       var seconds = heap_uint32[req / Int32Array.BYTES_PER_ELEMENT];
       var nanoseconds = heap_uint32[(req / Int32Array.BYTES_PER_ELEMENT) + 1];
-      // Atomics.wait(nanosleepWaiter, 0, 0, seconds * 1000 + nanoseconds / 1000000);
+      Atomics.wait(nanosleepWaiter, 0, 0, seconds * 1000 + nanoseconds / 1000000);
       return 0;
     }
   },
