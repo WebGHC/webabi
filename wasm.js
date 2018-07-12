@@ -1740,8 +1740,15 @@ syscall_fns = {
   },
   265: {
     name: "SYS_clock_gettime",
-    fn: function() {
-      throw "SYS_clock_gettime NYI";
+    fn: function(clockid, timespec_) {
+      // Ignore clockid
+      var milliseconds = Date.now();
+      var seconds = Math.floor(milliseconds/1000);
+      var nanoseconds = (milliseconds % 1000) * 1000 * 1000;
+      var ptr = timespec_ / 4;
+      heap_uint32[ptr] = seconds;
+      heap_uint32[ptr + 1] = nanoseconds;
+      return 0;
     }
   },
   266: {
