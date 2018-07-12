@@ -6,16 +6,24 @@ var heap_uint8;
 var heap_uint32;
 var debugSyscalls = false;
 
+// Track the end of memory
+// The end can be smaller than memory_size_pages * PAGE_SIZE
+// As munmap can de-allocate some memory
+// Since we cannot shrink the memory after allocation
+// We track the end using this.
+var memory_end;
+
 importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
 
 function heap_size_bytes() {
-  return memory_size_pages * PAGE_SIZE;
+  return memory_end;
 }
 
 function setMemory(m) {
   memory = m;
   heap = m.buffer;
   memory_size_pages = heap.byteLength / PAGE_SIZE;
+  memory_end = memory_size_pages * PAGE_SIZE;
   heap_uint8 = new Uint8Array(heap);
   heap_uint32 = new Uint32Array(heap);
 }
@@ -336,7 +344,7 @@ syscall_fns = {
   45: {
     name: "SYS_brk",
     fn: function(addr) {
-      var numPages = Math.ceil(addr / 65536);
+      var numPages = Math.ceil(addr / PAGE_SIZE);
       if (numPages > memory_size_pages) {
         memory.grow(numPages - memory_size_pages);
 
@@ -344,6 +352,9 @@ syscall_fns = {
 	// the `memory.buffer` reference the same? Either way, memory_size_pages
 	// needs to be updated.
         setMemory(memory);
+      } else if (addr > memory_end) {
+        // We have already allocated the memory
+        memory_end = addr;
       }
       return heap_size_bytes();
     }
@@ -629,8 +640,14 @@ syscall_fns = {
   },
   91: {
     name: "SYS_munmap",
-    fn: function() {
-      throw "SYS_munmap NYI";
+    fn: function(addr, len) {
+      if ((addr + len) === heap_size_bytes()) {
+        // Remove memory from end
+        memory_end = addr;
+      } else {
+        console.log("warning: SYS_munmap being ignored");
+      }
+      return 0;
     }
   },
   92: {
@@ -1276,8 +1293,22 @@ syscall_fns = {
   },
   192: {
     name: "SYS_mmap2",
-    fn: function() {
-      throw "SYS_mmap2 NYI";
+    fn: function(addr, len, prot, flags, fd, offset) {
+      // Ignore prot and flags
+      var currentSize = heap_size_bytes();
+      if ((fd === -1) && (offset === 0)
+          && ((addr === 0) || (addr === currentSize))) {
+        var newSize = syscall(45 // SYS_brk
+                              , currentSize + len);
+        return currentSize;
+
+      } else {
+        throw ("SYS_mmap2 NYI: "
+               + addr + ", "
+               + len + ", "
+               + fd + ", "
+               + offset + ", ");
+      }
     }
   },
   193: {
