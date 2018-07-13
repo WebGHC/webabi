@@ -954,8 +954,28 @@ syscall_fns = {
   },
   142: {
     name: "SYS__newselect",
-    fn: function() {
-      throw "SYS__newselect NYI";
+    fn: function(nfds, readfds_, writefds_, exceptfds_, timeout_) {
+      // ignore timeout_ exceptfds_
+      var nonzero = 0;
+      for (var i = 0; i < nfds; i++) {
+        var fds_ = writefds_;
+        var fds = fds_ / 4;
+        var fd = heap_uint32[fds + i];
+        var events = heap_uint8[fds_ + i + 4];
+        if (fd == 1) {
+          // Assume std_out to be always ready
+          // ignore events
+          // Write to revents
+          heap_uint8[fds_ + i + 5] = 4; // POLLOUT
+          nonzero += 1;
+        } else {
+          console.log("SYS__newselect FD: " + fd
+                      + ", " + events
+                     );
+          throw "SYS__newselect FD not handled";
+        }
+      }
+      return nonzero;
     }
   },
   143: {
