@@ -955,7 +955,16 @@ syscall_fns = {
   142: {
     name: "SYS__newselect",
     fn: function(nfds, readfds_, writefds_, exceptfds_, timeout_) {
-      // ignore timeout_ exceptfds_
+      // ignore exceptfds_
+
+      var timeout = timeout_ / 4;
+      var timeoutSec = heap_uint32[timeout];
+      var timeoutUSec = heap_uint32[timeout + 1];
+      // nfds == 0 means this is just a timeout/delay request
+      if (nfds == 0 && (timeoutSec !== 0 ||  timeoutUSec !== 0)) {
+        Atomics.wait(nanosleepWaiter, 0, 0, timeoutSec * 1000 + timeoutUSec / 1000);
+      }
+
       var nonzero = 0;
       for (var i = 0; i < nfds; i++) {
         var fds_ = writefds_;
