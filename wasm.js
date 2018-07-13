@@ -1149,11 +1149,28 @@ syscall_fns = {
   },
   168: {
     name: "SYS_poll",
-    fn: function() {
-      // fdReady from base calls poll to check if FD is ready
-      // We assume it is and return a positive value
-      console.log("warning: SYS_poll returning 1");
-      return 1;
+    fn: function(fds_, nfds, timeout) {
+      // timeout ignored
+      var fds = fds_ / 4;
+      var nonzero = 0;
+      for (var i = 0; i < nfds; i++) {
+        var fd = heap_uint32[fds + i];
+        // short is uint8
+        var events = heap_uint8[fds_ + i + 4];
+        if (fd == 1) {
+          // Assume std_out to be always ready
+          // ignore events
+          // Write to revents
+          heap_uint8[fds_ + i + 5] = 4; // POLLOUT
+          nonzero += 1;
+        } else {
+          console.log("SYS_poll FD: " + fd
+                      + ", " + events
+                     );
+          throw "SYS_poll FD not handled";
+        }
+      }
+      return nonzero;
     }
   },
   169: {
