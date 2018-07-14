@@ -954,8 +954,37 @@ syscall_fns = {
   },
   142: {
     name: "SYS__newselect",
-    fn: function() {
-      throw "SYS__newselect NYI";
+    fn: function(nfds, readfds_, writefds_, exceptfds_, timeout_) {
+      // ignore exceptfds_
+
+      var timeout = timeout_ / 4;
+      var timeoutSec = heap_uint32[timeout];
+      var timeoutUSec = heap_uint32[timeout + 1];
+      // nfds == 0 means this is just a timeout/delay request
+      if (nfds == 0 && (timeoutSec !== 0 ||  timeoutUSec !== 0)) {
+        Atomics.wait(nanosleepWaiter, 0, 0, timeoutSec * 1000 + timeoutUSec / 1000);
+      }
+
+      var nonzero = 0;
+      for (var i = 0; i < nfds; i++) {
+        var fds_ = writefds_;
+        var fds = fds_ / 4;
+        var fd = heap_uint32[fds + i];
+        var events = heap_uint8[fds_ + i + 4];
+        if (fd == 1) {
+          // Assume std_out to be always ready
+          // ignore events
+          // Write to revents
+          heap_uint8[fds_ + i + 5] = 4; // POLLOUT
+          nonzero += 1;
+        } else {
+          console.log("SYS__newselect FD: " + fd
+                      + ", " + events
+                     );
+          throw "SYS__newselect FD not handled";
+        }
+      }
+      return nonzero;
     }
   },
   143: {
@@ -1149,11 +1178,32 @@ syscall_fns = {
   },
   168: {
     name: "SYS_poll",
-    fn: function() {
-      // fdReady from base calls poll to check if FD is ready
-      // We assume it is and return a positive value
-      console.log("warning: SYS_poll returning 1");
-      return 1;
+    fn: function(fds_, nfds, timeoutMSec) {
+      // nfds == 0 means this is just a timeout/delay request
+      if (nfds == 0) {
+        Atomics.wait(nanosleepWaiter, 0, 0, timeoutMSec);
+      }
+
+      var fds = fds_ / 4;
+      var nonzero = 0;
+      for (var i = 0; i < nfds; i++) {
+        var fd = heap_uint32[fds + i];
+        // short is uint8
+        var events = heap_uint8[fds_ + i + 4];
+        if (fd == 1) {
+          // Assume std_out to be always ready
+          // ignore events
+          // Write to revents
+          heap_uint8[fds_ + i + 5] = 4; // POLLOUT
+          nonzero += 1;
+        } else {
+          console.log("SYS_poll FD: " + fd
+                      + ", " + events
+                     );
+          throw "SYS_poll FD not handled";
+        }
+      }
+      return nonzero;
     }
   },
   169: {
