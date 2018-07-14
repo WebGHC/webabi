@@ -15,6 +15,10 @@ var memory_end;
 
 importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
 
+function warn(str) {
+  console.log("Warning: " + str);
+}
+
 function heap_size_bytes() {
   return memory_end;
 }
@@ -413,7 +417,7 @@ syscall_fns = {
     fn: function() {
       // TODO: Actually implement this somehow.
       // It is stubbed here because `musl` calls it as a program starts.
-      console.log("warning: ioctl being ignored");
+      warn("ioctl being ignored");
       return 0;
     }
   },
@@ -645,7 +649,7 @@ syscall_fns = {
         // Remove memory from end
         memory_end = addr;
       } else {
-        console.log("warning: SYS_munmap being ignored");
+        warn("SYS_munmap being ignored");
       }
       return 0;
     }
@@ -796,7 +800,7 @@ syscall_fns = {
   116: {
     name: "SYS_sysinfo",
     fn: function() {
-      console.log("warning: SYS_sysinfo being ignored");
+      warn("SYS_sysinfo being ignored");
       return 0;
       // throw "SYS_sysinfo NYI";
     }
@@ -1239,14 +1243,14 @@ syscall_fns = {
   174: {
     name: "SYS_rt_sigaction",
     fn: function() {
-      console.log("warning: rt_sigaction being ignored");
+      warn("rt_sigaction being ignored");
       return 0;
     }
   },
   175: {
     name: "SYS_rt_sigprocmask",
     fn: function() {
-      console.log("warning: rt_sigprocmask being ignored");
+      warn("rt_sigprocmask being ignored");
       return 0;
     }
   },
@@ -1668,7 +1672,7 @@ syscall_fns = {
     fn: function() {
       // TODO: Actually implement this somehow.
       // It is stubbed here because `musl` calls it as a program starts.
-      console.log("warning: set_thread_area being ignored");
+      warn("set_thread_area being ignored");
       return 0;
     }
   },
@@ -1717,7 +1721,7 @@ syscall_fns = {
   252: {
     name: "SYS_exit_group",
     fn: function() {
-      console.log("warning: SYS_exit_group being ignored");
+      warn("SYS_exit_group being ignored");
       return 0;
     }
   },
@@ -1756,21 +1760,21 @@ syscall_fns = {
     fn: function() {
       // TODO: Actually implement this somehow.
       // It is stubbed here because `musl` calls it as a program starts.
-      console.log("warning: set_tid_address being ignored");
+      warn("set_tid_address being ignored");
       return 0;
     }
   },
   259: {
     name: "SYS_timer_create",
     fn: function() {
-      console.log("warning: timer_create being ignored");
+      warn("timer_create being ignored");
       return 0;
     }
   },
   260: {
     name: "SYS_timer_settime",
     fn: function() {
-      console.log("warning: SYS_timer_settime being ignored");
+      warn("SYS_timer_settime being ignored");
       return 0;
     }
   },
@@ -1789,7 +1793,7 @@ syscall_fns = {
   263: {
     name: "SYS_timer_delete",
     fn: function() {
-      console.log("warning: SYS_timer_delete being ignored");
+      warn("SYS_timer_delete being ignored");
       return 0;
     }
   },
