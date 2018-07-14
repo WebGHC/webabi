@@ -2401,13 +2401,16 @@ async function fetchAndInstantiate(url, importObject) {
 
 async function execve(url, args, envs) {
   console.log('execve: ' + url + ' [' + args + '] [' + envs + ']');
+  var start;
   try {
     const instance = await fetchAndInstantiate(url, importObject);
+    start = performance.now();
     var exitCode = runMain(instance, args, envs);
     console.log('program exited with code: ' + exitCode);
   } catch (e) {
     console.log('program terminated: ' + e);
   }
+  console.log("Time: " + (performance.now() - start) + "ms");
 }
 
 onmessage = function(msg) {
