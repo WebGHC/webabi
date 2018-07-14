@@ -1178,8 +1178,12 @@ syscall_fns = {
   },
   168: {
     name: "SYS_poll",
-    fn: function(fds_, nfds, timeout) {
-      // timeout ignored
+    fn: function(fds_, nfds, timeoutMSec) {
+      // nfds == 0 means this is just a timeout/delay request
+      if (nfds == 0) {
+        Atomics.wait(nanosleepWaiter, 0, 0, timeoutMSec);
+      }
+
       var fds = fds_ / 4;
       var nonzero = 0;
       for (var i = 0; i < nfds; i++) {
