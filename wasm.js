@@ -5,6 +5,7 @@ var heap;
 var heap_uint8;
 var heap_uint32;
 var debugSyscalls = false;
+var printWarnings = false;
 
 // Track the end of memory
 // The end can be smaller than memory_size_pages * PAGE_SIZE
@@ -20,10 +21,13 @@ if(typeof exports !== 'undefined'){
   var {performance } = require('perf_hooks');
 } else {
   importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
+  printWarnings = true;
 }
 
 function warn(str) {
-  console.log("Warning: " + str);
+  if (printWarnings) {
+    console.log("Warning: " + str);
+  }
 }
 
 function heap_size_bytes() {
@@ -2428,8 +2432,13 @@ async function execve(url, args, envs) {
 }
 
 if(typeof exports !== 'undefined'){
-  exports.wasmExecve = function (progName) {
-    debugSyscalls = true;
+  exports.wasmExecve = function (progName, sysCalls, warnings) {
+    if (sysCalls) {
+      debugSyscalls = true;
+    }
+    if (warnings) {
+      printWarnings = true;
+    }
 
     execve(progName, [progName], []);
   }
