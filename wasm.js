@@ -13,7 +13,14 @@ var debugSyscalls = false;
 // We track the end using this.
 var memory_end;
 
-importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
+if(typeof exports !== 'undefined'){
+  // Nodejs support
+  var fs = require('./fs.js');
+  var utils = require('./util.js');
+  var {performance } = require('perf_hooks');
+} else {
+  importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
+}
 
 function warn(str) {
   console.log("Warning: " + str);
@@ -37,7 +44,7 @@ function heapStr(ptr) {
   if (end === -1) {
     throw "heapStr: expected a null-terminated string";
   }
-  return bufToStr(heap_uint8, ptr, end);
+  return utils.bufToStr(heap_uint8, ptr, end);
 }
 
 var nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
@@ -79,7 +86,7 @@ syscall_fns = {
     name: "SYS_open",
     fn: function(pathnamePtr, flags, mode) {
       var pathname = heapStr(pathnamePtr);
-      return fs.openat(AT_FDCWD, pathname, flags, mode);
+      return fs.openat(fs.AT_FDCWD, pathname, flags, mode);
     }
   },
   6: {
@@ -104,7 +111,7 @@ syscall_fns = {
     fn: function(oldpathPtr, newpathPtr) {
       var oldpath = heapStr(oldpathPtr);
       var newpath = heapStr(newpathPtr);
-      return fs.linkat(AT_FDCWD, oldpath, newpath);
+      return fs.linkat(fs.AT_FDCWD, oldpath, newpath);
     }
   },
   10: {
@@ -310,7 +317,7 @@ syscall_fns = {
     name: "SYS_mkdir",
     fn: function(pathnamePtr, mode) {
       var pathname = heapStr(pathnamePtr);
-      return fs.mkdirat(AT_FDCWD, pathname, mode);
+      return fs.mkdirat(fs.AT_FDCWD, pathname, mode);
     }
   },
   40: {
@@ -596,7 +603,7 @@ syscall_fns = {
     fn: function(targetPtr, linkpathPtr) {
       var target = heapStr(targetPtr);
       var linkpath = heapStr(linkpathPtr);
-      return fs.symlinkat(target, AT_FDCWD, linkpath);
+      return fs.symlinkat(target, fs.AT_FDCWD, linkpath);
     }
   },
   84: {
@@ -609,7 +616,7 @@ syscall_fns = {
     name: "SYS_readlink",
     fn: function(pathnamePtr, bufPtr, bufsiz) {
       var pathname = heapStr(pathnamePtr);
-      return fs.readlinkat(AT_FDCWD, pathname);
+      return fs.readlinkat(fs.AT_FDCWD, pathname);
     }
   },
   86: {
@@ -2361,7 +2368,7 @@ function buildStringTable(strings, ptr) {
   // copy strings to memory
   strings.forEach(s => {
     elems.push(ptr);
-    ptr += strToBufWithZero(s, heap_uint8, ptr);
+    ptr += utils.strToBufWithZero(s, heap_uint8, ptr);
   });
 
   // build table
@@ -2393,8 +2400,15 @@ function runMain(instance, args, envs) {
 }
 
 async function fetchAndInstantiate(url, importObject) {
-  const response = await fetch(url);
-  const bytes = await response.arrayBuffer();
+  var bytes = "";
+  if (typeof exports === 'undefined'){
+    var resp = await fetch(url);
+    bytes = await resp.arrayBuffer();
+  } else {
+    var fsMod = require ('fs');
+    const buf = fsMod.readFileSync(url);
+    bytes = new Uint8Array(buf);
+  }
   const results = await WebAssembly.instantiate(bytes, importObject);
   return results.instance;
 }
@@ -2403,8 +2417,8 @@ async function execve(url, args, envs) {
   console.log('execve: ' + url + ' [' + args + '] [' + envs + ']');
   var start;
   try {
-    const instance = await fetchAndInstantiate(url, importObject);
     start = performance.now();
+    const instance = await fetchAndInstantiate(url, importObject);
     var exitCode = runMain(instance, args, envs);
     console.log('program exited with code: ' + exitCode);
   } catch (e) {
@@ -2413,10 +2427,18 @@ async function execve(url, args, envs) {
   console.log("Time: " + (performance.now() - start) + "ms");
 }
 
-onmessage = function(msg) {
-  if (msg.data.options && msg.data.options.debugSyscalls) {
+if(typeof exports !== 'undefined'){
+  exports.wasmExecve = function (progName) {
     debugSyscalls = true;
-  }
 
-  execve(msg.data.progName, [msg.data.progName], []);
+    execve(progName, [progName], []);
+  }
+} else {
+  onmessage = function(msg) {
+    if (msg.data.options && msg.data.options.debugSyscalls) {
+      debugSyscalls = true;
+    }
+    execve(msg.data.progName, [msg.data.progName], []);
+  };
 }
+

@@ -1,5 +1,10 @@
+if(typeof exports !== 'undefined'){
+  var BrowserFS = require ('browserfs');
+  var utils = require('./util.js');
+}
 var bfs = BrowserFS.BFSRequire('fs');
-var utils = BrowserFS.BFSRequire('bfs_utils');
+var bfs_utils = BrowserFS.BFSRequire('bfs_utils');
+
 
 // Certain directories are required by POSIX (and musl). In case there is an
 // in memory filesystem under root we need to take care to create these manually.
@@ -111,7 +116,7 @@ var fs = {
     // stdout is handled specially here, we may have a more robust solution
     // in the future that does not assume stdout is connected to console
     if (fd === 1) {
-      stdout__write(bufToStr(buf, offset, offset + count));
+      utils.stdout__write(utils.bufToStr(buf, offset, offset + count));
       return count;
     } else {
       var b = utils.uint8Array2Buffer(buf);
@@ -195,3 +200,7 @@ var fs = {
     return catchApiError(() => bfs.ftruncate(fd, length));
   }
 };
+
+if(typeof exports !== 'undefined'){
+  module.exports = fs;
+}
