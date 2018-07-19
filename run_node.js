@@ -21,7 +21,6 @@ if (args.length == 0) {
     } else {
       execName = s;
     }
-    console.log(j + ' -> ' + (process.argv[j]));
   }
 
   wasmjs.wasmExecve(execName, sysCalls, warnings);
