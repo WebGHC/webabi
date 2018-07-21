@@ -5,7 +5,7 @@ var heap;
 var heap_uint8;
 var heap_uint32;
 var debugSyscalls = false;
-var printWarnings = false;
+var exitedSuccessfully = false;
 
 // Track the end of memory
 // The end can be smaller than memory_size_pages * PAGE_SIZE
@@ -21,13 +21,7 @@ if(typeof exports !== 'undefined'){
   performance = require('perf_hooks').performance;
 } else {
   importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
-  printWarnings = true;
-}
-
-function warn(str) {
-  if (printWarnings) {
-    console.log("Warning: " + str);
-  }
+  utils.printWarnings = true;
 }
 
 function heap_size_bytes() {
@@ -65,6 +59,7 @@ syscall_fns = {
   1: {
     name: "SYS_exit",
     fn: function() {
+      exitedSuccessfully = true;
       throw "Success! SYS_exit called";
     }
   },
@@ -428,7 +423,7 @@ syscall_fns = {
     fn: function() {
       // TODO: Actually implement this somehow.
       // It is stubbed here because `musl` calls it as a program starts.
-      warn("ioctl being ignored");
+      utils.warn("ioctl being ignored");
       return 0;
     }
   },
@@ -660,7 +655,7 @@ syscall_fns = {
         // Remove memory from end
         memory_end = addr;
       } else {
-        warn("SYS_munmap being ignored");
+        utils.warn("SYS_munmap being ignored");
       }
       return 0;
     }
@@ -811,7 +806,7 @@ syscall_fns = {
   116: {
     name: "SYS_sysinfo",
     fn: function() {
-      warn("SYS_sysinfo being ignored");
+      utils.warn("SYS_sysinfo being ignored");
       return 0;
       // throw "SYS_sysinfo NYI";
     }
@@ -993,9 +988,9 @@ syscall_fns = {
           heap_uint8[fds_ + i + 5] = 4; // POLLOUT
           nonzero += 1;
         } else {
-          console.log("SYS__newselect FD: " + fd
-                      + ", " + events
-                     );
+          utils.errorMessage("SYS__newselect FD: " + fd
+                             + ", " + events
+                            );
           throw "SYS__newselect FD not handled";
         }
       }
@@ -1212,9 +1207,9 @@ syscall_fns = {
           heap_uint8[fds_ + i + 5] = 4; // POLLOUT
           nonzero += 1;
         } else {
-          console.log("SYS_poll FD: " + fd
-                      + ", " + events
-                     );
+          utils.errorMessage("SYS_poll FD: " + fd
+                             + ", " + events
+                            );
           throw "SYS_poll FD not handled";
         }
       }
@@ -1254,14 +1249,14 @@ syscall_fns = {
   174: {
     name: "SYS_rt_sigaction",
     fn: function() {
-      warn("rt_sigaction being ignored");
+      utils.warn("rt_sigaction being ignored");
       return 0;
     }
   },
   175: {
     name: "SYS_rt_sigprocmask",
     fn: function() {
-      warn("rt_sigprocmask being ignored");
+      utils.warn("rt_sigprocmask being ignored");
       return 0;
     }
   },
@@ -1683,7 +1678,7 @@ syscall_fns = {
     fn: function() {
       // TODO: Actually implement this somehow.
       // It is stubbed here because `musl` calls it as a program starts.
-      warn("set_thread_area being ignored");
+      utils.warn("set_thread_area being ignored");
       return 0;
     }
   },
@@ -1732,7 +1727,7 @@ syscall_fns = {
   252: {
     name: "SYS_exit_group",
     fn: function() {
-      warn("SYS_exit_group being ignored");
+      utils.warn("SYS_exit_group being ignored");
       return 0;
     }
   },
@@ -1771,21 +1766,21 @@ syscall_fns = {
     fn: function() {
       // TODO: Actually implement this somehow.
       // It is stubbed here because `musl` calls it as a program starts.
-      warn("set_tid_address being ignored");
+      utils.warn("set_tid_address being ignored");
       return 0;
     }
   },
   259: {
     name: "SYS_timer_create",
     fn: function() {
-      warn("timer_create being ignored");
+      utils.warn("timer_create being ignored");
       return 0;
     }
   },
   260: {
     name: "SYS_timer_settime",
     fn: function() {
-      warn("SYS_timer_settime being ignored");
+      utils.warn("SYS_timer_settime being ignored");
       return 0;
     }
   },
@@ -1804,7 +1799,7 @@ syscall_fns = {
   263: {
     name: "SYS_timer_delete",
     fn: function() {
-      warn("SYS_timer_delete being ignored");
+      utils.warn("SYS_timer_delete being ignored");
       return 0;
     }
   },
@@ -2336,7 +2331,7 @@ syscall_fns = {
 
 function syscall(sys, arg1, arg2, arg3, arg4, arg5, arg6) {
   if (debugSyscalls) {
-    console.log(syscall_fns[sys].name, arg1, arg2, arg3, arg4, arg5, arg6);
+    utils.infoMessage(syscall_fns[sys].name, arg1, arg2, arg3, arg4, arg5, arg6);
   }
   return syscall_fns[sys].fn(arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -2418,21 +2413,24 @@ async function fetchAndInstantiate(url, importObject) {
 }
 
 function logTime(msg, start) {
-  console.log(msg + (performance.now() - start) + "ms");
+  utils.infoMessage(msg + (performance.now() - start) + "ms");
 }
 
 async function execve(url, args, envs) {
-  console.log('execve: ' + url + ' [' + args + '] [' + envs + ']');
+  utils.infoMessage('execve: ' + url + ' [' + args + '] [' + envs + ']');
   var start;
   try {
     start = performance.now();
     const instance = await fetchAndInstantiate(url, importObject);
     logTime("Fetch & instantiate time: ", start);
     start = performance.now();
-    var exitCode = runMain(instance, args, envs);
-    console.log('program exited with code: ' + exitCode);
+    runMain(instance, args, envs);
   } catch (e) {
-    console.log('program terminated: ' + e);
+    if (exitedSuccessfully) {
+      utils.infoMessage(e);
+    } else {
+      utils.errorMessage("Program terminated: " + e);
+    }
   }
   logTime("Run time: ", start);
 }
@@ -2443,7 +2441,7 @@ if(typeof exports !== 'undefined'){
       debugSyscalls = true;
     }
     if (warnings) {
-      printWarnings = true;
+      utils.printWarnings = true;
     }
 
     execve(progName, [progName], []);

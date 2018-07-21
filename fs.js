@@ -27,7 +27,7 @@ BrowserFS.configure({
   }
 }, function (e) {
   if (e) {
-    console.log('Failed to initialize BrowserFS');
+    utils.error('Failed to initialize BrowserFS');
     throw e;
   }
 
@@ -98,7 +98,7 @@ function catchApiError(f) {
 var fs = {
   openat: function (dirfd, pathname, flags, mode) {
     if (dirfd !== AT_FDCWD) {
-      console.log('openat: TODO: dirfd other than AT_FDCWD, ignoring');
+      utils.warn('openat: TODO: dirfd other than AT_FDCWD, ignoring');
     }
     return catchApiError(() => bfs.openSync(pathname, flagsToString(flags), mode));
   },
@@ -130,7 +130,7 @@ var fs = {
 
   linkat: function (dirfd, oldpath, newpath) {
     if (dirfd !== AT_FDCWD) {
-      console.log('linkat: TODO: dirfd other than AT_FDCWD, ignoring');
+      utils.warn('linkat: TODO: dirfd other than AT_FDCWD, ignoring');
     }
     return catchApiError(() => bfs.linkSync(oldpath, newpath));
   },
@@ -141,7 +141,7 @@ var fs = {
 
   unlinkat: function (dirfd, pathname, flags) {
     if (difd !== AT_FDCWD) {
-      console.log('unlinkat: TODO: dirfd other than AT_FDCWD, ignoring');
+      utils.warn('unlinkat: TODO: dirfd other than AT_FDCWD, ignoring');
     }
     if (flags & AT_REMOVEDIR) {
       return this.rmdir(pathname);
@@ -152,7 +152,7 @@ var fs = {
 
   mkdirat: function (dirfd, pathname, mode) {
     if (dirfd !== AT_FDCWD) {
-      console.log('linkat: TODO: dirfd other than AT_FDCWD, ignoring');
+      utils.warn('linkat: TODO: dirfd other than AT_FDCWD, ignoring');
     }
     return catchApiError(() => bfs.mkdirSync(pathname, mode));
   },
@@ -179,14 +179,14 @@ var fs = {
 
   symlinkat: function (target, newdirfd, linkpath) {
     if (dirfd !== AT_FDCWD) {
-      console.log('symlinkat: TODO: dirfd other than AT_FDCWD, ignoring');
+      utils.warn('symlinkat: TODO: dirfd other than AT_FDCWD, ignoring');
     }
     return catchApiError(() => bfs.symlinkSync(target, linkpath, ''));
   },
 
   readlinkat: function (dirfd, pathname) {
     if (dirfd !== AT_FDCWD) {
-      console.log('readlinkat: TODO: dirfd other than AT_FDCWD, ignoring');
+      utils.warn('readlinkat: TODO: dirfd other than AT_FDCWD, ignoring');
     }
     return catchApiError(() => bfs.readlinkSync(pathname));
   },
