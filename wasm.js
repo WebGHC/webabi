@@ -18,7 +18,7 @@ if(typeof exports !== 'undefined'){
   // Nodejs support
   var fs = require('./fs.js');
   var utils = require('./util.js');
-  var {performance } = require('perf_hooks');
+  performance = require('perf_hooks').performance;
 } else {
   importScripts('node_modules/browserfs/dist/browserfs.js', 'include/errno.js', 'util.js', 'fs.js');
   printWarnings = true;
@@ -2417,18 +2417,24 @@ async function fetchAndInstantiate(url, importObject) {
   return results.instance;
 }
 
+function logTime(msg, start) {
+  console.log(msg + (performance.now() - start) + "ms");
+}
+
 async function execve(url, args, envs) {
   console.log('execve: ' + url + ' [' + args + '] [' + envs + ']');
   var start;
   try {
     start = performance.now();
     const instance = await fetchAndInstantiate(url, importObject);
+    logTime("Fetch & instantiate time: ", start);
+    start = performance.now();
     var exitCode = runMain(instance, args, envs);
     console.log('program exited with code: ' + exitCode);
   } catch (e) {
     console.log('program terminated: ' + e);
   }
-  console.log("Time: " + (performance.now() - start) + "ms");
+  logTime("Run time: ", start);
 }
 
 if(typeof exports !== 'undefined'){
