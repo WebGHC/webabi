@@ -108,7 +108,7 @@ var fs = {
   },
 
   read: function (fd, buf, offset, count) {
-    var b = utils.uint8Array2Buffer(buf);
+    var b = bfs_utils.uint8Array2Buffer(buf);
     return catchApiError(() => bfs.readSync(fd, b, offset, count, null));
   },
 
@@ -119,7 +119,7 @@ var fs = {
       utils.stdout__write(utils.bufToStr(buf, offset, offset + count));
       return count;
     } else {
-      var b = utils.uint8Array2Buffer(buf);
+      var b = bfs_utils.uint8Array2Buffer(buf);
       return catchApiError(() => bfs.writeSync(fd, b, offset, count, null));
     }
   },
