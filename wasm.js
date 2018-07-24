@@ -7,6 +7,11 @@ var heap_uint32;
 var debugSyscalls = false;
 var exitedSuccessfully = false;
 
+var JSADDLE_OUT_FD = 4;
+var JSADDLE_IN_FD = 5;
+var JSADDLE_OUT_DEV = "/dev/jsaddle_out";
+var JSADDLE_IN_DEV = "/dev/jsaddle_in";
+
 // Track the end of memory
 // The end can be smaller than memory_size_pages * PAGE_SIZE
 // As munmap can de-allocate some memory
@@ -78,13 +83,24 @@ syscall_fns = {
   4: {
     name: "SYS_write",
     fn: function(fd, bufPtr, count) {
-      return fs.write(fd, heap_uint8, bufPtr, count);
+      if (fd === JSADDLE_OUT_FD) {
+        var d = utils.bufToStr(heap_uint8, bufPtr, bufPtr + count);
+        console.log('JSADDLE_OUT: "' + d + '"');
+        return count;
+      } else {
+        return fs.write(fd, heap_uint8, bufPtr, count);
+      }
     }
   },
   5: {
     name: "SYS_open",
     fn: function(pathnamePtr, flags, mode) {
       var pathname = heapStr(pathnamePtr);
+      if (pathname == JSADDLE_OUT_DEV) {
+        return JSADDLE_OUT_FD;
+      } else if (pathname == JSADDLE_IN_DEV) {
+        return JSADDLE_IN_FD;
+      }
       return fs.openat(fs.AT_FDCWD, pathname, flags, mode);
     }
   },
@@ -1404,8 +1420,19 @@ syscall_fns = {
   },
   197: {
     name: "SYS_fstat64",
-    fn: function() {
-      throw "SYS_fstat64 NYI";
+    fn: function(fd, statbuf_) {
+      if ((fd === JSADDLE_IN_FD) || (fd === JSADDLE_OUT_FD)) {
+        // Set device type in st_mode field
+        // S_IFCHR    0020000   character device (octal)
+        // sizeof (st_dev) 8
+        // sizeof (st_ino) 8
+        // sizeof (st_mode) 4
+        st_mode_ptr = (statbuf_ + 16) / 4;
+        heap_uint32[st_mode_ptr] = 8192;
+        return 0;
+      } else {
+        throw "SYS_fstat64 NYI";
+      }
     }
   },
   198: {
@@ -1995,6 +2022,11 @@ syscall_fns = {
     name: "SYS_openat",
     fn: function (dirfd, pathnamePtr, flags, mode) {
       var pathname = heapStr(pathnamePtr);
+      if (pathname == JSADDLE_OUT_DEV) {
+        return JSADDLE_OUT_FD;
+      } else if (pathname == JSADDLE_IN_DEV) {
+        return JSADDLE_IN_FD;
+      }
       return fs.openat(dirfd, pathname, flags, mode);
     }
   },
