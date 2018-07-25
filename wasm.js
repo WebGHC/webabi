@@ -7,10 +7,24 @@ var heap_uint32;
 var debugSyscalls = false;
 var exitedSuccessfully = false;
 
-var JSADDLE_OUT_FD = 4;
-var JSADDLE_IN_FD = 5;
-var JSADDLE_OUT_DEV = "/dev/jsaddle_out";
-var JSADDLE_IN_DEV = "/dev/jsaddle_in";
+// Sub-worker, collecting incoming messages from JS side jsaddle
+var jsaddleListener;
+
+// SharedArrayBuffer to communicate between wasm and jsaddleListener workers
+// Just for incoming messages/SYS_read
+// The write can happen via non-blocking postMessage
+//
+// The wasm worker is supposed to read one incoming message at a time
+// So this buffer will contain only one message at a time.
+
+// First UInt (32 bits), indicate buffer data size
+// Followed by data
+var jsaddleMsgSharedBuf = new SharedArrayBuffer(1024*1024);
+var jsaddleMsgBufArray = new Uint8Array(jsaddleMsgSharedBuf);
+var jsaddleMsgBufArray32 = new Uint32Array(jsaddleMsgSharedBuf);
+
+var JSADDLE_INOUT_FD = 4;
+var JSADDLE_INOUT_DEV = "/dev/jsaddle_inout";
 
 // Track the end of memory
 // The end can be smaller than memory_size_pages * PAGE_SIZE
@@ -77,15 +91,46 @@ syscall_fns = {
   3: {
     name: "SYS_read",
     fn: function(fd, bufPtr, count) {
-      return fs.read(fd, heap_uint8, bufPtr, count);
+      if (fd === JSADDLE_INOUT_FD) {
+        var bytes_read = 0;
+        var bytes_available = jsaddleMsgBufArray32[0];
+        if (bytes_available > 0) {
+          if (bytes_available > count) {
+            var i = count;
+            bytes_read = i;
+            while (i--) heap_uint8[bufPtr + i] = jsaddleMsgBufArray[i + 4];
+
+            // Shift the remaining contents, and set size
+            var target = 4;
+            var start = count + 4 + 1;
+            var len = bytes_available - count;
+            jsaddleMsgBufArray.copyWithin(target, start, len);
+            jsaddleMsgBufArray32[0] = len;
+          } else {
+            var i = bytes_available;
+            bytes_read = bytes_available + 1;
+            while (i--) heap_uint8[bufPtr + i] = jsaddleMsgBufArray[i + 4];
+            heap_uint8[bufPtr + bytes_available + 1] = 0;
+
+            // Set remaining bytes to 0
+            jsaddleMsgBufArray32[0] = 0;
+            // Tell jsaddle listener that buffer has been read
+            jsaddleListener.postMessage({type: 'read'});
+          }
+        }
+        return bytes_read;
+      } else {
+        return fs.read(fd, heap_uint8, bufPtr, count);
+      }
     }
   },
   4: {
     name: "SYS_write",
     fn: function(fd, bufPtr, count) {
-      if (fd === JSADDLE_OUT_FD) {
-        var d = utils.bufToStr(heap_uint8, bufPtr, bufPtr + count);
-        console.log('JSADDLE_OUT: "' + d + '"');
+      if (fd === JSADDLE_INOUT_FD) {
+        var a = new Uint8Array(heap_uint8.slice(bufPtr, bufPtr + count));
+        var b = a.buffer;
+        jsaddleListener.postMessage({type: 'write', buf: b}, [b]);
         return count;
       } else {
         return fs.write(fd, heap_uint8, bufPtr, count);
@@ -96,12 +141,11 @@ syscall_fns = {
     name: "SYS_open",
     fn: function(pathnamePtr, flags, mode) {
       var pathname = heapStr(pathnamePtr);
-      if (pathname == JSADDLE_OUT_DEV) {
-        return JSADDLE_OUT_FD;
-      } else if (pathname == JSADDLE_IN_DEV) {
-        return JSADDLE_IN_FD;
+      if (pathname == JSADDLE_INOUT_DEV) {
+        return JSADDLE_INOUT_FD;
+      } else {
+        return fs.openat(fs.AT_FDCWD, pathname, flags, mode);
       }
-      return fs.openat(fs.AT_FDCWD, pathname, flags, mode);
     }
   },
   6: {
@@ -1421,7 +1465,7 @@ syscall_fns = {
   197: {
     name: "SYS_fstat64",
     fn: function(fd, statbuf_) {
-      if ((fd === JSADDLE_IN_FD) || (fd === JSADDLE_OUT_FD)) {
+      if (fd === JSADDLE_INOUT_FD) {
         // Set device type in st_mode field
         // S_IFCHR    0020000   character device (octal)
         // sizeof (st_dev) 8
@@ -2022,12 +2066,11 @@ syscall_fns = {
     name: "SYS_openat",
     fn: function (dirfd, pathnamePtr, flags, mode) {
       var pathname = heapStr(pathnamePtr);
-      if (pathname == JSADDLE_OUT_DEV) {
-        return JSADDLE_OUT_FD;
-      } else if (pathname == JSADDLE_IN_DEV) {
-        return JSADDLE_IN_FD;
+      if (pathname == JSADDLE_INOUT_DEV) {
+        return JSADDLE_INOUT_FD;
+      } else {
+        return fs.openat(dirfd, pathname, flags, mode);
       }
-      return fs.openat(dirfd, pathname, flags, mode);
     }
   },
   296: {
@@ -2483,7 +2526,13 @@ if(typeof exports !== 'undefined'){
     if (msg.data.options && msg.data.options.debugSyscalls) {
       debugSyscalls = true;
     }
+    jsaddleListener = new Worker('jsaddle_listener.js');
+    jsaddleListener.postMessage(
+      {type: 'init'
+       , jsaddleMsgBufArray32: jsaddleMsgBufArray32
+       , jsaddleMsgBufArray: jsaddleMsgBufArray
+       , jsaddleChannelPort: msg.data.jsaddleChannelPort}
+      , [msg.data.jsaddleChannelPort]);
     execve(msg.data.progName, [msg.data.progName], []);
   };
 }
-

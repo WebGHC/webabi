@@ -113,9 +113,9 @@ var fs = {
   },
 
   write: function (fd, buf, offset, count) {
-    // stdout is handled specially here, we may have a more robust solution
-    // in the future that does not assume stdout is connected to console
-    if (fd === 1) {
+    // stdout and stderr are handled specially here, we may have a more robust solution
+    // in the future that does not assume they are connected to console
+    if ((fd === 1) || (fd === 2)) {
       utils.stdout__write(utils.bufToStr(buf, offset, offset + count));
       return count;
     } else {
