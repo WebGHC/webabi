@@ -12,5 +12,8 @@ module.exports = {
   resolve: {
     // Using file:../kernel in package.json requires this
     symlinks: false
+  },
+  node: {
+    process: false
   }
 };

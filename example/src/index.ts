@@ -9,6 +9,10 @@ class JSaddleDevice implements Device {
 
 configureFileSystem({ "/jsaddle": new JSaddleDevice() }, (err, fs) => {
   console.log(err);
-  let buf = Buffer.from("hi\n");
-  fs.write(1, buf, 0, buf.length, null, () => {});
+  let buf = Buffer.from("foo\n");
+  fs.write(1, buf, 0, buf.length, null, () => {
+    fs.read(0, buf, 0, 4, null, (err, n, buf) => {
+      console.log({ err: err, n: n, buf: buf && buf.toString() });
+    });
+  });
 });

@@ -79,9 +79,9 @@ if (process && !(process as any).browser) {
 
     onData(buf: Buffer): void {
       const reqs = this.requests;
-      this.requests = <[Request]> [];
       let nextBuf: Buffer | null = null;
-      for (const req of reqs) {
+      let req: Request;
+      while (req = this.requests.shift()) {
         if (buf.length > req.length) {
           nextBuf = buf.slice(req.length);
           buf = buf.slice(0, req.length);
@@ -92,6 +92,9 @@ if (process && !(process as any).browser) {
         const copied = buf.copy(req.buffer, req.offset);
         req.cb(undefined, copied, req.buffer);
 
+        if (!nextBuf || nextBuf.length == 0) {
+          break;
+        }
         buf = nextBuf;
       }
 

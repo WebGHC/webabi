@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "install": "npm run build",
-    "test": "npm run build && webpack && node build/main.js"
+    "test": "npm run build && webpack && (echo bar | node build/main.js)"
   },
   "author": "Will Fancher",
   "dependencies": {
