@@ -103,6 +103,9 @@ if (!(typeof process === "undefined" || (process as any).browser)) {
         // Use Buffer.from to avoid retaining the entire history.
         this.leftover = Buffer.from(nextBuf);
       }
+      if (this.requests.length > 0) {
+        this.stream.resume();
+      }
     };
     close(cb: BFSOneArgCallback): void {
       this.stream.end(cb);
