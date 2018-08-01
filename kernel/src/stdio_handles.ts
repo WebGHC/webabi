@@ -44,7 +44,7 @@ class UselessFile extends BaseFile implements File {
   }
 }
 
-if (process && !(process as any).browser) {
+if (!(typeof process === "undefined" || (process as any).browser)) {
   interface Request {
     buffer: Buffer;
     offset: number;
