@@ -1,7 +1,5 @@
 const path = require('path');
 
-console.log(require.resolve("webabi-kernel"));
-
 module.exports = {
   entry: './dist/index.js',
   mode: "production",
