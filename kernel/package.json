@@ -4,7 +4,6 @@
   "description": "",
   "scripts": {
     "build": "tsc",
-    "main": "npm run tsc && node dist/foo.js",
     "install": "npm run build"
   },
   "main": "dist/index.js",
