@@ -1,9 +1,13 @@
-import { Device, configureFileSystem, BFSCallback, Stats, File, FileFlag, FS, asyncRead, asyncWrite } from "webabi-kernel";
+import { Device, configureFileSystem, BFSCallback,
+         Stats, File, FileFlag, FS, ApiError,
+         ErrorCode, asyncRead, asyncWrite } from "webabi-kernel";
 
 class JSaddleDevice implements Device {
-  open(flag: FileFlag, cb: BFSCallback<File>): void {
+  async open(flag: FileFlag): Promise<File> {
+    throw new ApiError(ErrorCode.ENOTSUP);
   }
-  stat(isLstat: boolean | null, cb: BFSCallback<Stats>): void {
+  async stat(isLstat: boolean | null): Promise<Stats> {
+    throw new ApiError(ErrorCode.ENOTSUP);
   }
 }
 

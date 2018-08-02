@@ -11,8 +11,8 @@ import { ApiError, ErrorCode } from 'browserfs/dist/node/core/api_error';
 import FS from "browserfs/dist/node/core/FS";
 
 export interface Device {
-  open(flag: FileFlag, cb: BFSCallback<File>): void;
-  stat(isLstat: boolean | null, cb: BFSCallback<Stats>): void;
+  open(flag: FileFlag): Promise<File>;
+  stat(isLstat: boolean | null): Promise<Stats>;
 }
 
 export interface DeviceFileSystemOptions {
@@ -53,16 +53,16 @@ export class DeviceFileSystem extends BaseFileSystem implements FileSystem {
 
   public openFile(p: string, flag: FileFlag, cb: BFSCallback<File>): void {
     if (this.options.devices.hasOwnProperty(p)) {
-      return this.options.devices[p].open(flag, cb);
+      this.options.devices[p].open(flag).then(f => cb(undefined, f), e => cb(e));
     } else {
-      return cb(ApiError.ENOENT(p));
+      cb(ApiError.ENOENT(p));
     }
   }
   public stat(p: string, isLstat: boolean | null, cb: BFSCallback<Stats>): void {
     if (this.options.devices.hasOwnProperty(p)) {
-      return this.options.devices[p].stat(isLstat, cb);
+      this.options.devices[p].stat(isLstat).then(s => cb(undefined, s), e => cb(e));
     } else {
-      return cb(ApiError.ENOENT(p));
+      cb(ApiError.ENOENT(p));
     }
   }
 }
@@ -104,4 +104,4 @@ export async function asyncWrite(fs: FS, fd: number, buffer: Buffer, offset: num
 }
 
 // Re-export for device implementors
-export { BFSCallback, Stats, File, FileFlag, FS };
+export { BFSCallback, Stats, File, FileFlag, FS, ApiError, ErrorCode };
