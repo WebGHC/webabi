@@ -67,32 +67,41 @@ export class DeviceFileSystem extends BaseFileSystem implements FileSystem {
   }
 }
 
-export function configureFileSystem(devices: { [name: string]: Device }, cb: BFSCallback<FS>): void {
-  DeviceFileSystem.Create({ devices: devices }, (e, dfs) => {
-    if (e) {
-      cb(e);
-      return;
-    }
+export async function configureFileSystem(devices: { [name: string]: Device }): Promise<FS> {
+  const dfs = await new Promise<DeviceFileSystem>((resolve, reject) => {
+    DeviceFileSystem.Create({ devices: devices }, (e, dfs) => e ? reject(e) : resolve(dfs))
+  });
+  const mfs = await new Promise<MountableFileSystem>((resolve, reject) => {
     MountableFileSystem.Create({
       "/dev": dfs
-    }, (e, mfs) => {
-      if (e) {
-        cb(e);
-        return
-      }
+    }, (e, mfs) => e ? reject(e) : resolve(mfs));
+  });
 
-      const fs = new FS();
-      fs.initialize(mfs);
+  const fs = new FS();
+  fs.initialize(mfs);
 
-      const fdMap: {[id: number]: File} = (fs as any).fdMap;
-      fdMap[0] = handles.stdin;
-      fdMap[1] = handles.stdout;
-      fdMap[2] = handles.stderr;
+  const fdMap: {[id: number]: File} = (fs as any).fdMap;
+  fdMap[0] = handles.stdin;
+  fdMap[1] = handles.stdout;
+  fdMap[2] = handles.stderr;
 
-      cb(undefined, fs);
-    });
+  return fs;
+}
+
+export async function asyncRead(fs: FS, fd: number, buffer: Buffer, offset: number, length: number, position: number | null)
+: Promise<{ byteLength: number, buffer: Buffer }> {
+  return new Promise<{ byteLength: number, buffer: Buffer }>((resolve, reject) => {
+    fs.read(fd, buffer, offset, length, position,
+            (err, n, buf) => err ? reject(err) : resolve({ byteLength: n, buffer: buf }));
+  });
+}
+
+export async function asyncWrite(fs: FS, fd: number, buffer: Buffer, offset: number, length: number, position: number | null)
+: Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    fs.write(fd, buffer, offset, length, position, e => e ? reject(e) : resolve())
   });
 }
 
 // Re-export for device implementors
-export { BFSCallback, Stats, File, FileFlag };
+export { BFSCallback, Stats, File, FileFlag, FS };
