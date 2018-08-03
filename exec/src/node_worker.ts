@@ -1,8 +1,8 @@
 declare module "worker_threads" {
-  export class Worker {
-    constructor(path: string);
-    postMessage(msg: any, transferList: [any]): void;
+  interface MessagePort {
+    postMessage(msg: any, transferList: [any]);
     on(event: "message", handler: (msg: any) => void);
     unref(): void;
   }
+  export const parentPort: MessagePort;
 }

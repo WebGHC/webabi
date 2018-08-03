@@ -1,16 +1,15 @@
 {
-  "name": "webabi-example",
+  "name": "webabi-exec",
   "version": "0.0.1",
   "description": "",
   "scripts": {
     "build": "tsc && webpack",
-    "install": "npm run build",
-    "test": "npm run build && (cd ..; echo bar | node --experimental-worker example/build/main.js)"
+    "install": "npm run build"
   },
+  "main": "dist/index.js",
   "author": "Will Fancher",
   "dependencies": {
-    "typescript": "^2.9.2",
-    "webabi-kernel": "file:../kernel"
+    "typescript": "^2.9.2"
   },
   "devDependencies": {
     "webpack": "^4.16.3",
