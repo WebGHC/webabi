@@ -38,12 +38,15 @@ if(typeof exports === 'undefined'){
   };
   utils.stdout__write = function (str) {
     var i = str.lastIndexOf("\n");
-    if (i >= 0) {
-      console.log(stdout__buf + str.substring(0, i));
-      stdout__buf = str.substring(i + 1);
-    } else {
-      stdout__buf += str;
-    }
+    // XXX Error is not printed, with below algo
+    // So till that is fixed, directly print
+    console.log(str);
+    // if (i >= 0) {
+    //   console.log(stdout__buf + str.substring(0, i));
+    //   stdout__buf = str.substring(i + 1);
+    // } else {
+    //   stdout__buf += str;
+    // }
   };
 } else {
   exports.bufToStr = function (buf, ptr, end) {

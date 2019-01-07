@@ -1404,8 +1404,8 @@ syscall_fns = {
   },
   197: {
     name: "SYS_fstat64",
-    fn: function() {
-      throw "SYS_fstat64 NYI";
+    fn: function(fd, statbuf_) {
+      return fs.fstat64(fd, statbuf_);
     }
   },
   198: {
@@ -1537,14 +1537,15 @@ syscall_fns = {
   219: {
     name: "SYS_madvise",
     fn: function() {
-      throw "SYS_madvise NYI";
+      utils.warn("SYS_madvise being ignored");
+      return 0;
     }
   },
   219: {
     name: "SYS_madvise1",
     fn: function() {
-      // not implemented in the Linux kernel
-      throw "SYS_madvise1 NYI";
+      utils.warn("SYS_madvise1 being ignored");
+      return 0;
     }
   },
   220: {
@@ -2331,7 +2332,7 @@ syscall_fns = {
 
 function syscall(sys, arg1, arg2, arg3, arg4, arg5, arg6) {
   if (debugSyscalls) {
-    utils.infoMessage(syscall_fns[sys].name, arg1, arg2, arg3, arg4, arg5, arg6);
+    console.debug(syscall_fns[sys].name, arg1, arg2, arg3, arg4, arg5, arg6);
   }
   return syscall_fns[sys].fn(arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -2451,7 +2452,7 @@ if(typeof exports !== 'undefined'){
     if (msg.data.options && msg.data.options.debugSyscalls) {
       debugSyscalls = true;
     }
+    fs.initFsJSaddle(msg.data.jsaddleChannelPort);
     execve(msg.data.progName, [msg.data.progName], []);
   };
 }
-
