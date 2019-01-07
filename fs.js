@@ -159,9 +159,9 @@ var fs = {
           jsaddleMsgBufArray32[0] = len;
         } else {
           var i = bytes_available;
-          bytes_read = bytes_available + 1;
+          bytes_read = bytes_available;
           while (i--) buf[offset + i] = jsaddleMsgBufArray[i + 4];
-          buf[offset + bytes_available + 1] = 0;
+          //buf[offset + bytes_available + 1] = 0;
 
           // Set remaining bytes to 0
           jsaddleMsgBufArray32[0] = 0;
