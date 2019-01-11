@@ -1,3 +1,15 @@
+webabi
+---
+
+This is a TypeScript library for executing WebAssembly programs using
+an approximation of the Linux syscall ABI. Supported features include
+file IO via [BrowserFS](https://github.com/jvilk/BrowserFS/), device
+drivers for custom IO, and memory management syscalls like `brk`. This
+library is useful if your WebAssembly module was built with a libc,
+like `musl`, that expects the sycall ABI. With `webabi`, your
+WebAssembly build system can be a standard C toolchain, maximizing the
+ease of porting existing C software.
+
 Building
 ---
 
