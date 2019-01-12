@@ -1,9 +1,29 @@
 {
   "name": "webabi",
   "version": "0.0.1",
-  "main": "index.js",
-  "license": "MIT",
+  "description": "",
+  "scripts": {
+    "build": "tsc && webpack"
+  },
+  "main": "dist/index.js",
+  "author": "Will Fancher",
   "dependencies": {
-    "browserfs": "^1.4.3"
+    "browserfs": "jvilk/BrowserFS#c4985cba16ae7027658e5da3596085167a212b40",
+  },
+  "devDependencies": {
+    "@types/archiver": "^2.0.0",
+    "@types/async": "^2.0.49",
+    "@types/body-parser": "^1.16.4",
+    "@types/dropboxjs": "0.0.29",
+    "@types/express": "^4.0.36",
+    "@types/filesystem": "0.0.28",
+    "@types/isomorphic-fetch": "^0.0.34",
+    "@types/mocha": "^5.2.5",
+    "@types/node": "^10.11.0",
+    "@types/rimraf": "^2.0.2",
+    "@types/webassembly-js-api": "0.0.2",
+    "typescript": "^2.9.2",
+    "webpack": "^4.28.1",
+    "webpack-cli": "^3.2.1"
   }
 }
