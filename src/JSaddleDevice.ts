@@ -82,7 +82,6 @@ export class JSaddleDeviceFile extends BaseFile implements File {
   public writeSync(buffer: Buffer, offset: number, length: number, position: number | null): number {
     var a = new Uint8Array(buffer.slice(offset, offset + length));
     var b = a.buffer;
-    console.log("writing jsaddlebuf ", offset,length);
     this._jsaddleListener.postMessage({type: 'write', buffer: b}, [b]);
     return length;
   }

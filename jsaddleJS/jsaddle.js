@@ -338,7 +338,7 @@ function sendAPI (msg) {
   const uint8 = new Uint8Array(b);
   uint8.set(a, 4);
   // non-blocking
-  appendMsgToSharedBuf(b);
+  appendMsgToSharedBuf(uint8);
 }
 
 async function appendMsgToSharedBuf(buf) {
