@@ -95,30 +95,31 @@ export class JSaddleDeviceFile extends BaseFile implements File {
   }
   public readSync(buffer: Buffer, offset: number, length: number, position: number | null): number {
     var bytes_read = 0;
-    var bytes_available = this._jsaddleMsgBufArray32[0];
-    if (bytes_available > 0) {
-      if (bytes_available > length) {
-        let i : number = length;
-        bytes_read = i;
-        while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
+    var isAlreadyLocked = Atomics.compareExchange(this._jsaddleMsgBufArray32, 0, 0, 1);
+    if (isAlreadyLocked === 0) {
+      var bytes_available = this._jsaddleMsgBufArray32[1];
+      if (bytes_available > 0) {
+        if (bytes_available > length) {
+          let i : number = length;
+          bytes_read = i;
+          while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
 
-        // Shift the remaining contents, and set size
-        var target = 4;
-        var start = length + 4 + 1;
-        var len = bytes_available - length;
-        this._jsaddleMsgBufArray.copyWithin(target, start, len);
-        this._jsaddleMsgBufArray32[0] = len;
-      } else {
-        var i = bytes_available;
-        bytes_read = bytes_available;
-        while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
-        //buffer[offset + bytes_available + 1] = 0;
-
-        // Set remaining bytes to 0
-        this._jsaddleMsgBufArray32[0] = 0;
-        // Tell jsaddle listener that buffer has been read
-        this._jsaddleListener.postMessage({type: 'read'});
+          // Shift the remaining contents, and set size
+          var target = 8;
+          var start = length + 8 + 1;
+          var len = bytes_available - length;
+          this._jsaddleMsgBufArray.copyWithin(target, start, len);
+          this._jsaddleMsgBufArray32[1] = len;
+        } else {
+          var i = bytes_available;
+          bytes_read = bytes_available;
+          while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
+          // Set remaining bytes to 0
+          this._jsaddleMsgBufArray32[1] = 0;
+        }
       }
+      // Release the lock
+      this._jsaddleMsgBufArray32[0] = 0;
     }
     return bytes_read;
   }
