@@ -1,5 +1,5 @@
-import FS from "browserfs/dist/node/core/FS";
-import { ApiError, ErrorCode } from "browserfs/dist/node/core/api_error";
+import FS from "@marionebl/browserfs/dist/node/core/FS";
+import { ApiError, ErrorCode } from "@marionebl/browserfs/dist/node/core/api_error";
 import Syscall from "./syscalls";
 import Errno from "./errno";
 import { OpenFlags, flagsToString, AtFlags, PAGE_SIZE } from "./constants";

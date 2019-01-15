@@ -1,8 +1,8 @@
-import { File, BaseFile } from "browserfs/dist/node/core/file";
-import { BaseFileSystem, FileSystemConstructor, BFSCallback, BFSOneArgCallback, BFSThreeArgCallback, FileSystem, FileSystemOptions } from "browserfs/dist/node/core/file_system";
-import { FileType } from 'browserfs/dist/node/core/node_fs_stats';
-import Stats from 'browserfs/dist/node/core/node_fs_stats';
-import { ApiError, ErrorCode } from 'browserfs/dist/node/core/api_error';
+import { File, BaseFile } from "@marionebl/browserfs/dist/node/core/file";
+import { BaseFileSystem, FileSystemConstructor, BFSCallback, BFSOneArgCallback, BFSThreeArgCallback, FileSystem, FileSystemOptions } from "@marionebl/browserfs/dist/node/core/file_system";
+import { FileType } from '@marionebl/browserfs/dist/node/core/node_fs_stats';
+import Stats from '@marionebl/browserfs/dist/node/core/node_fs_stats';
+import { ApiError, ErrorCode } from '@marionebl/browserfs/dist/node/core/api_error';
 
 export let stdin: File;
 export let stdout: File;

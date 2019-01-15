@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "author": "Will Fancher",
   "dependencies": {
-    "browserfs": "jvilk/BrowserFS#c4985cba16ae7027658e5da3596085167a212b40"
+    "@marionebl/browserfs": "^2.0.0"
   },
   "devDependencies": {
     "@types/archiver": "^2.0.0",

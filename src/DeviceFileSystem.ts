@@ -1,9 +1,9 @@
 import { BaseFileSystem, BFSCallback, FileSystem, FileSystemOptions
-       } from "browserfs/dist/node/core/file_system";
-import Stats from 'browserfs/dist/node/core/node_fs_stats';
-import { File } from "browserfs/dist/node/core/file";
-import { FileFlag } from "browserfs/dist/node/core/file_flag";
-import { ApiError } from 'browserfs/dist/node/core/api_error';
+       } from "@marionebl/browserfs/dist/node/core/file_system";
+import Stats from '@marionebl/browserfs/dist/node/core/node_fs_stats';
+import { File } from "@marionebl/browserfs/dist/node/core/file";
+import { FileFlag } from "@marionebl/browserfs/dist/node/core/file_flag";
+import { ApiError } from '@marionebl/browserfs/dist/node/core/api_error';
 
 export interface Device {
   open(flag: FileFlag): File;
