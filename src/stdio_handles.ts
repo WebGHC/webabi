@@ -101,5 +101,5 @@ if (typeof self === "undefined") {
 
   stdin = new UselessFile();
   stdout = new ConsoleFile((msg) => console.log(msg));
-  stderr = new ConsoleFile((msg) => console.error(msg));
+  stderr = new ConsoleFile((msg) => console.warn(msg));
 }
