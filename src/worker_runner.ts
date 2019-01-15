@@ -11,5 +11,5 @@ connectParent({ onMessage: async msg1 => {
     msg.jsaddleVals.jsaddleMsgBufArray,
     msg.jsaddleVals.jsaddleMsgBufArray32);
   const fs = await configureFileSystem({ devices: { ["/jsaddle_inout"]: jsaddleDevice } });
-  (await Process.instantiateProcess(fs, msg.url)).start();
+  (await Process.instantiateProcess(fs, msg.url)).start([],[]);
 }});

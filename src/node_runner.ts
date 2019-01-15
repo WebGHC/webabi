@@ -7,12 +7,13 @@ async function main(): Promise<void> {
     var args = process.argv.splice(process.execArgv.length + 2);
 
     if (args.length == 0) {
-      console.log('Usage: node node_runner.js <wasm-executable-name>');
+      console.log('Usage: node node_runner.js <wasm-executable-name> [<args>]');
       process.exit(1);
     } else {
       const execName: string = args[0];
       const fs = await configureFileSystem({ devices: {} });
-      process.exit((await Process.instantiateProcess(fs, execName)).start());
+      const env = Object.entries(process.env).map(([k, v]) => (k + "=" + v));
+      process.exit((await Process.instantiateProcess(fs, execName)).start(args, env));
     }
   } catch(e) {
     console.error(e);
