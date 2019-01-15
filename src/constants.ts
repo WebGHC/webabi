@@ -33,7 +33,9 @@ export function flagsToString(a: number): string {
   case OpenFlags.O_APPEND | OpenFlags.O_CREAT | OpenFlags.O_RDWR | OpenFlags.O_EXCL: return 'ax+';
   }
 
-  throw 'flagToString: Invalid flag value';
+  // TODO
+  return 'r+';
+  // throw ('flagToString: Invalid flag value: ' + a);
 }
 
 export enum AtFlags {

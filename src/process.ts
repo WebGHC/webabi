@@ -233,6 +233,8 @@ export class Process {
         return this.symlinkat(arg1, arg2, arg3);
       case Syscall.SYS_readlinkat:
         return this.readlinkat(arg1, arg2, arg3, arg4);
+      case Syscall.SYS_fstat64:
+        return this.fstat64(arg1, arg2);
       default:
         throw (Syscall[sys] + " NYI");
     }
@@ -562,5 +564,12 @@ export class Process {
       this.stringToHeap(bufPtr, bufsize, str);
       return 0;
     });
+  }
+
+  // TODO
+  fstat64(fd: number, statbuf_: number): number {
+    var st_mode_ptr = (statbuf_ + 16) / 4;
+    this.heap_uint32[st_mode_ptr] = 8192;
+    return 0;
   }
 }
