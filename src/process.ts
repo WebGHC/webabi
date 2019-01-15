@@ -160,8 +160,8 @@ export class Process {
 
   heapStr(ptr: number): string {
     const end = this.heap_uint8.indexOf(0, ptr);
-      if (end === -1) {
-	throw "heapStr: expected a null-terminated string";
+    if (end === -1) {
+      throw "heapStr: expected a null-terminated string";
     }
     return this.textDecoder.decode(this.heap_uint8.subarray(ptr, end));
   }
