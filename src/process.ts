@@ -92,9 +92,62 @@ export class Process {
     this.memoryEnd = this.heap_uint8.length;
   }
 
-  start(): number {
+  growMemory(n: number): void {
+    this.instance.exports.memory.grow(n);
+    this.setMemory(this.instance.exports.memory);
+  }
+
+  dump(offset : number, length: number): void {
+    for(let o = offset; o <= offset+length; o+=16) {
+      var line = [];
+      for(var i = 0; i < 16; i++) {
+	line.push( ("0"+this.heap_uint8[o+i].toString(16)).slice(-2) );
+      }
+      var asciiline = []
+      for (var i = 0; i < 16; i++) {
+	let x = this.heap_uint8[o+i];
+	if(x > 30 && x < 128) {
+	  asciiline.push( String.fromCharCode(x) );
+	} else {
+	  asciiline.push(".");
+	}
+      }
+      console.warn("0x" + ("00000000" + o.toString(16)).slice(-8) + " ", line.join(" "), " | ", asciiline.join(""));
+    }
+  }
+
+  buildStringTable(args: string[], envs: string[], p: number): number {
+    var elems = new Uint32Array(args.length + 1 + envs.length + 1);
+    var ptr = p + (args.length + 1 + envs.length + 1) * Int32Array.BYTES_PER_ELEMENT;
+    for(let i = 0; i < args.length; i++) {
+      elems[i] = ptr;
+      ptr += this.cstringToHeap(ptr, args[i]);
+    }
+    elems[args.length] = 0;
+
+    for(let i = 0; i < envs.length; i++) {
+      elems[args.length + 1 + i] = ptr;
+      ptr += this.cstringToHeap(ptr, envs[i]);
+    }
+    elems[envs.length] = 0;
+
+    this.heap_uint32.set(elems, p / Int32Array.BYTES_PER_ELEMENT);
+
+    // word size align the return value.
+    return Math.ceil(ptr / Int32Array.BYTES_PER_ELEMENT) * Int32Array.BYTES_PER_ELEMENT ;
+  }
+
+  start(args: string[], envs: string[] ): number {
     try {
-      this.instance.exports._start();
+      const p = this.memoryEnd;
+      // reserve some space for argc, argv, ...
+      this.growMemory(1);
+      // we will put argc, argv, and envp onto out as follows
+      // argc | argv[0] | argv[1] | argv[2] | ... | envp[0] | ...
+      this.heap_uint32[p/Int32Array.BYTES_PER_ELEMENT + 0] = args.length;
+      this.buildStringTable(args, envs, p + Int32Array.BYTES_PER_ELEMENT);
+
+      this.instance.exports._start(p);
       return 1; // Should never reach this.
     } catch(e) {
       if (e instanceof ExitException) {
@@ -107,8 +160,8 @@ export class Process {
 
   heapStr(ptr: number): string {
     const end = this.heap_uint8.indexOf(0, ptr);
-    if (end === -1) {
-      throw "heapStr: expected a null-terminated string";
+      if (end === -1) {
+	throw "heapStr: expected a null-terminated string";
     }
     return this.textDecoder.decode(this.heap_uint8.subarray(ptr, end));
   }
@@ -116,6 +169,14 @@ export class Process {
   stringToHeap(bufPtr: number, bufsize: number, str: string): void {
     const arr: Uint8Array = this.textEncoder.encode(str);
     this.heap_uint8.set(arr.subarray(0, bufsize), bufPtr);
+  }
+
+  cstringToHeap(bufPtr: number, str: string): number {
+    console.warn("writing '" + str + "' at '" + bufPtr);
+    const arr: Uint8Array = this.textEncoder.encode(str);
+    this.heap_uint8.set(arr, bufPtr);
+    this.heap_uint8[bufPtr+arr.length] = 0x0;
+    return arr.byteLength+1;
   }
 
   syscall_(sys: number, addr: number): number {
