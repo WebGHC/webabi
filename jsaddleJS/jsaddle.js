@@ -254,6 +254,7 @@ function jsaddleHandler(msg) {
         }
       }
       catch (err) {
+        console.log(err);
         var n = ++jsaddle_index;
         jsaddle_values.set(n, err);
         sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Failure", "contents": [callbacksToFree, results, n]}]});
