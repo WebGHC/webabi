@@ -172,7 +172,6 @@ export class Process {
   }
 
   cstringToHeap(bufPtr: number, str: string): number {
-    console.warn("writing '" + str + "' at '" + bufPtr);
     const arr: Uint8Array = this.textEncoder.encode(str);
     this.heap_uint8.set(arr, bufPtr);
     this.heap_uint8[bufPtr+arr.length] = 0x0;
