@@ -17,8 +17,8 @@ function catchApiError(f: () => number): number {
 }
 
 if (typeof self === "undefined") {
-  TextDecoder = require("util").TextDecoder;
-  TextEncoder = require("util").TextEncoder;
+  var TextDecoder = require("util").TextDecoder;
+  var TextEncoder = require("util").TextEncoder;
 }
 
 class ExitException {
@@ -112,7 +112,7 @@ export class Process {
 	  asciiline.push(".");
 	}
       }
-      console.warn("0x" + ("00000000" + o.toString(16)).slice(-8) + " ", line.join(" "), " | ", asciiline.join(""));
+      // console.warn("0x" + ("00000000" + o.toString(16)).slice(-8) + " ", line.join(" "), " | ", asciiline.join(""));
     }
   }
 
@@ -225,7 +225,7 @@ export class Process {
       case Syscall.SYS_brk:
         return this.brk(arg1);
       case Syscall.SYS_ioctl:
-        console.warn("SYS_ioctl being ignored");
+        // console.warn("SYS_ioctl being ignored");
         return 0;
       case Syscall.SYS_symlink:
         return this.symlink(arg1, arg2);
@@ -238,7 +238,7 @@ export class Process {
       case Syscall.SYS_ftruncate:
         return this.ftruncate(arg1, arg2);
       case Syscall.SYS_sysinfo:
-        console.warn("SYS_sysinfo being ignored");
+        // console.warn("SYS_sysinfo being ignored");
         return 0;
       case Syscall.SYS__newselect:
         return this._newselect(arg1, arg2, arg3, arg4, arg5);
@@ -251,33 +251,33 @@ export class Process {
       case Syscall.SYS_poll:
         return this.poll(arg1, arg2, arg3);
       case Syscall.SYS_rt_sigaction:
-        console.warn("rt_sigaction being ignored");
+        // console.warn("rt_sigaction being ignored");
         return 0;
       case Syscall.SYS_rt_sigprocmask:
-        console.warn("rt_sigprocmask being ignored");
+        // console.warn("rt_sigprocmask being ignored");
         return 0;
       case Syscall.SYS_set_thread_area:
-        console.warn("set_thread_area being ignored");
+        // console.warn("set_thread_area being ignored");
         return 0;
       case Syscall.SYS_mmap2:
         return this.mmap2(arg1, arg2, arg3, arg4, arg5, arg6);
       case Syscall.SYS_madvise:
-        console.warn("SYS_madvise being ignored");
+        // console.warn("SYS_madvise being ignored");
         return 0;
       case Syscall.SYS_exit_group:
-        console.warn("SYS_exit_group being ignored");
+        // console.warn("SYS_exit_group being ignored");
         return 0;
       case Syscall.SYS_set_tid_address:
-        console.warn("set_tid_address being ignored");
+        // console.warn("set_tid_address being ignored");
         return 0;
       case Syscall.SYS_timer_create:
-        console.warn("timer_create being ignored");
+        // console.warn("timer_create being ignored");
         return  0;
       case Syscall.SYS_timer_settime:
-        console.warn("timer_settime being ignored");
+        // console.warn("timer_settime being ignored");
         return  0;
       case Syscall.SYS_timer_delete:
-        console.warn("timer_delete being ignored");
+        // console.warn("timer_delete being ignored");
         return  0;
       case Syscall.SYS_clock_gettime:
         return this.clockGettime(arg1, arg2);
@@ -405,7 +405,7 @@ export class Process {
     if (addr + len === this.memoryEnd) {
       this.memoryEnd = addr;
     } else {
-      console.warn("SYS_munmap being ignored");
+      // console.warn("SYS_munmap being ignored");
     }
     return 0;
   }
@@ -449,7 +449,7 @@ export class Process {
         this.heap_uint8[fds_ + i + 5] = 4; // POLLOUT
         nonzero += 1;
       } else {
-        console.error("SYS__newselect FD: " + fd + ", " + events);
+        // console.error("SYS__newselect FD: " + fd + ", " + events);
         throw "SYS__newselect FD not handled";
       }
     }
@@ -526,7 +526,7 @@ export class Process {
         this.heap_uint8[fds_ + i + 5] = 4; // POLLOUT
         nonzero += 1;
       } else {
-        console.error("SYS_poll FD: " + fd + ", " + events);
+        // console.error("SYS_poll FD: " + fd + ", " + events);
         throw "SYS_poll FD not handled";
       }
     }
