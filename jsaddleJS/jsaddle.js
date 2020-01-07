@@ -276,94 +276,34 @@ function jsaddleHandler(msg) {
     }
   };
 
-  runBatch(batch);
-}
-
-// Communication with JSaddleDevice running in the webabi webworker
-
-// Webabi Device -> JS
-// channel is used to receive messages for each SYS_Write call
-// This is a non-blocking call on the webabi side
-//
-var channel = new MessageChannel();
-channel.port1.onmessage = jsaddleHandlerMsgs;
-var msgbuffer = new Uint8Array(0);
-
-function appendBuffer( buffer1, buffer2 ) {
-  var tmp = new Uint8Array( buffer1.byteLength + buffer2.byteLength );
-  tmp.set( new Uint8Array( buffer1 ), 0 );
-  tmp.set( new Uint8Array( buffer2 ), buffer1.byteLength );
-  return tmp.buffer;
-}
-
-function jsaddleHandlerMsgs (msgs) {
-  msgbuffer = appendBuffer( msgbuffer, msgs.data.buffer );
-  if ( msgbuffer.byteLength > 4 ) {
-	  var dataview = new DataView(msgbuffer);
-	  size = dataview.getUint32(0);
-	  if ( msgbuffer.byteLength >= 4 + size) {
-	    thisMsg = msgbuffer.slice(4, size + 4);
-	    rest = msgbuffer.slice(4+size);
-	    jsaddleHandler(thisMsg);
-	    msgbuffer = new Uint8Array(0);
-	    if (rest.byteLength > 0) {
-		    jsaddleHandlerMsgs(rest);
-	    }
-	  }
+  for (i = 0; i < batch.length; i++) {
+    runBatch(batch[i]);
   }
 }
 
-// JS -> Webabi Device
-// SharedArrayBuffer is used to communicate back to JSaddleDevice in wasm side.
-// Since the jsaddle-wasm will do a SYS_read whenever it is free
-// append all the messages in this buffer.
-//
+var channel = new MessageChannel();
+channel.port1.onmessage = jsaddleHandlerMsgs;
 
-// First UInt (32 bits), hold a lock to the read/write of this shared buffer
-// and this value should be read/written with atomic operations.
-// Second UInt (32 bits), indicate size of payload currently in this buffer
-// After that buffer contains the payload
-// Note: the payload can contain multiple encoded messages
-// There for each message is prepended with its own size.
-var jsaddleMsgSharedBuf = new SharedArrayBuffer(10*1024*1024);
-var jsaddleMsgBufArray = new Uint8Array(jsaddleMsgSharedBuf);
-var jsaddleMsgBufArray32 = new Uint32Array(jsaddleMsgSharedBuf);
 
+function jsaddleHandlerMsgs (msg) {
+  jsaddleHandler(msg.data.buffer);
+}
+var g_worker = null;
 function sendAPI (msg) {
   var str = JSON.stringify(msg);
   var a = enc.encode(str);
   var size = a.length;
-  var b = new ArrayBuffer(size + 4);
-  var dataview = new DataView(b);
-  dataview.setUint32(0, size);
+  var b = new ArrayBuffer(size);
   const uint8 = new Uint8Array(b);
-  uint8.set(a, 4);
+  uint8.set(a, 0);
   // non-blocking
-  appendMsgToSharedBuf(uint8);
+  console.log("sendAPI", size);
+  g_worker.postMessage({data : b}, [b]);
 }
 
-async function appendMsgToSharedBuf(buf) {
-  var isAlreadyLocked = Atomics.compareExchange(jsaddleMsgBufArray32, 0, 0, 1);
-  if (isAlreadyLocked === 1) {
-    Atomics.wait(jsaddleMsgBufArray32, 0, 0);
-    appendMsgToSharedBuf(buf);
-  } else {
-    var len = buf.byteLength;
-    var prevLen = jsaddleMsgBufArray32[1];
-    var totalLen = len + prevLen;
-    var startOffset = prevLen + 8; // Two 32 bit uint
-    var i = len;
-    while (i--) jsaddleMsgBufArray[startOffset + i] = buf[i];
-    jsaddleMsgBufArray32[1] = totalLen;
-    // Release the lock
-    jsaddleMsgBufArray32[0] = 0;
-  }
-}
-
-function jsaddleJsInit() {
+function jsaddleJsInit(worker) {
+  g_worker = worker;
   return {
-    jsaddleListener: channel.port2,
-    jsaddleMsgBufArray: jsaddleMsgBufArray,
-    jsaddleMsgBufArray32: jsaddleMsgBufArray32
+    jsaddleChannelPort: channel.port2,
   };
 }

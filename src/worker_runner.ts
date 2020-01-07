@@ -1,15 +1,22 @@
 import { configureFileSystem, Process } from "./index";
 import { connectParent } from "./worker";
 import { JSaddleDevice } from "./JSaddleDevice";
+const fs = configureFileSystem();
+
+var g_objInstance = null;
 
 connectParent({ onMessage: async msg1 => {
-  // TODO
   let msg = await msg1;
   console.log(msg);
-  const jsaddleDevice = new JSaddleDevice(
-    msg.jsaddleVals.jsaddleListener,
-    msg.jsaddleVals.jsaddleMsgBufArray,
-    msg.jsaddleVals.jsaddleMsgBufArray32);
-  const fs = await configureFileSystem({ devices: { ["/jsaddle_inout"]: jsaddleDevice } });
-  (await Process.instantiateProcess(fs, msg.url)).start([],[]);
+  if (msg.url) {
+    let inst = Process.instantiateProcess(fs, msg.url, msg.jsaddleVals.jsaddleChannelPort);
+    inst.then(obj => {
+      g_objInstance = obj;
+      g_objInstance.start([],[]);
+      var emptyMsg = new ArrayBuffer(0);
+      g_objInstance.runStep({data : emptyMsg});
+    });
+  } else {
+    g_objInstance.runStep(msg);
+  }
 }});

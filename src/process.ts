@@ -45,6 +45,7 @@ export async function fetchAndInstantiate(url: string, importObject: any): Promi
 
 export class Process {
   fs: FS;
+  jsaddleChannelPort: MessagePort;
   instance: WebAssembly.Instance;
   memoryEnd: number;
   heap: ArrayBuffer;
@@ -55,8 +56,10 @@ export class Process {
   textEncoder: TextEncoder = new TextEncoder();
   nanosleepWaiter: Int32Array = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
-  static async instantiateProcess(fs: FS, url: string): Promise<Process> {
-    const proc = new Process(fs);
+  msgBufferPtr: number = 0;
+
+  static async instantiateProcess(fs: FS, url: string, jsaddleChannelPort: MessagePort): Promise<Process> {
+    const proc = new Process(fs, jsaddleChannelPort);
     const syscall = proc.syscall.bind(proc);
     const syscall_ = proc.syscall_.bind(proc);
     const importObj = {
@@ -80,8 +83,9 @@ export class Process {
     return proc;
   }
 
-  constructor(fs: FS) {
+  constructor(fs: FS, jsaddleChannelPort: MessagePort) {
     this.fs = fs;
+    this.jsaddleChannelPort = jsaddleChannelPort;
   }
 
   setMemory(m: WebAssembly.Memory): void {
@@ -147,11 +151,37 @@ export class Process {
       this.heap_uint32[p/Int32Array.BYTES_PER_ELEMENT + 0] = args.length;
       this.buildStringTable(args, envs, p + Int32Array.BYTES_PER_ELEMENT);
 
+      console.log("Process.start starting");
       this.instance.exports._start(p);
+      console.log("Process.start finished");
       return 1; // Should never reach this.
     } catch(e) {
       if (e instanceof ExitException) {
+        console.log("Process ExitException");
         return e.code;
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  runStep(msg): void {
+    try {
+      console.log("Process.runStep starting", msg);
+      if (this.msgBufferPtr == 0) {
+        console.log("allocating msgBufferPtr");
+        this.msgBufferPtr = this.instance.exports.jsaddleBufferAlloc(1000*1000);
+      }
+      this.heap_uint8.set(msg.data, this.msgBufferPtr);
+      var n = this.instance.exports.appExecStep(msg.data.length);
+      var a = new Uint8Array(this.heap_uint8.subarray(this.msgBufferPtr, this.msgBufferPtr + n));
+      this.jsaddleChannelPort.postMessage({buffer: a.buffer},[a.buffer]);
+      console.log("Process.runStep finished");
+      return; // Should never reach this.
+    } catch(e) {
+      if (e instanceof ExitException) {
+        console.log("Process.runStep ExitException");
+        return;
       } else {
         throw e;
       }

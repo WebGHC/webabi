@@ -9,19 +9,9 @@ import FS from "@marionebl/browserfs/dist/node/core/FS";
 import { DeviceFileSystem, Device }  from "./DeviceFileSystem";
 import { Process } from "./process";
 
-export async function configureFileSystem(options: { devices: { [name: string]: Device } }): Promise<FS> {
-  const devices = options.devices;
-  const dfs = await new Promise<DeviceFileSystem>((resolve, reject) => {
-    DeviceFileSystem.Create({ devices: devices }, (e, dfs) => e ? reject(e) : resolve(dfs))
-  });
-  const mfs = await new Promise<MountableFileSystem>((resolve, reject) => {
-    MountableFileSystem.Create({
-      "/dev": dfs
-    }, (e, mfs) => e ? reject(e) : resolve(mfs));
-  });
+export function configureFileSystem(): FS {
 
   const fs = new FS();
-  fs.initialize(mfs);
 
   const fdMap: {[id: number]: File} = (fs as any).fdMap;
   fdMap[0] = handles.stdin;

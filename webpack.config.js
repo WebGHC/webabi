@@ -3,7 +3,6 @@ const path = require("path");
 module.exports = {
     entry: {
         "worker_runner": "./dist/worker_runner.js",
-        "node_runner": "./dist/node_runner.js"
     },
     mode: "production",
     externals: [
