@@ -172,8 +172,9 @@ export class Process {
         console.log("allocating msgBufferPtr");
         this.msgBufferPtr = this.instance.exports.jsaddleBufferAlloc(1000*1000);
       }
-      this.heap_uint8.set(msg.data, this.msgBufferPtr);
-      var n = this.instance.exports.appExecStep(msg.data.length);
+      var msgArray = new Uint8Array(msg.data);
+      this.heap_uint8.set(msgArray, this.msgBufferPtr);
+      var n = this.instance.exports.appExecStep(msg.data.byteLength);
       var a = new Uint8Array(this.heap_uint8.subarray(this.msgBufferPtr, this.msgBufferPtr + n));
       this.jsaddleChannelPort.postMessage({buffer: a.buffer},[a.buffer]);
       console.log("Process.runStep finished");
