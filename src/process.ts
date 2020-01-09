@@ -57,6 +57,7 @@ export class Process {
   nanosleepWaiter: Int32Array = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
   msgBufferPtr: number = 0;
+  runningStep: boolean = false;
 
   static async instantiateProcess(fs: FS, url: string, jsaddleChannelPort: MessagePort): Promise<Process> {
     const proc = new Process(fs, jsaddleChannelPort);
@@ -148,8 +149,8 @@ export class Process {
       this.growMemory(1);
       // we will put argc, argv, and envp onto out as follows
       // argc | argv[0] | argv[1] | argv[2] | ... | envp[0] | ...
-      this.heap_uint32[p/Int32Array.BYTES_PER_ELEMENT + 0] = args.length;
-      this.buildStringTable(args, envs, p + Int32Array.BYTES_PER_ELEMENT);
+      // this.heap_uint32[p/Int32Array.BYTES_PER_ELEMENT + 0] = args.length;
+      // this.buildStringTable(args, envs, p + Int32Array.BYTES_PER_ELEMENT);
 
       console.log("Process.start starting");
       this.instance.exports._start(p);
@@ -167,7 +168,11 @@ export class Process {
 
   runStep(msg): void {
     try {
-      console.log("Process.runStep starting", msg);
+      if (this.runningStep) {
+        console.log("runStep running!!!");
+      }
+      this.runningStep = true;
+      console.log("Process.runStep starting", this.msgBufferPtr, msg);
       if (this.msgBufferPtr == 0) {
         console.log("allocating msgBufferPtr");
         this.msgBufferPtr = this.instance.exports.jsaddleBufferAlloc(1000*1000);
@@ -175,11 +180,15 @@ export class Process {
       var msgArray = new Uint8Array(msg.data);
       this.heap_uint8.set(msgArray, this.msgBufferPtr);
       var n = this.instance.exports.appExecStep(msg.data.byteLength);
-      var a = new Uint8Array(this.heap_uint8.subarray(this.msgBufferPtr, this.msgBufferPtr + n));
-      this.jsaddleChannelPort.postMessage({buffer: a.buffer},[a.buffer]);
+      if (n > 0) {
+        var a = new Uint8Array(this.heap_uint8.subarray(this.msgBufferPtr, this.msgBufferPtr + n));
+        this.jsaddleChannelPort.postMessage({buffer: a.buffer},[a.buffer]);
+      }
       console.log("Process.runStep finished");
+      this.runningStep = false;
       return; // Should never reach this.
     } catch(e) {
+      this.runningStep = false;
       if (e instanceof ExitException) {
         console.log("Process.runStep ExitException");
         return;

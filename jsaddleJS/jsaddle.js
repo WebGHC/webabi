@@ -276,9 +276,7 @@ function jsaddleHandler(msg) {
     }
   };
 
-  for (i = 0; i < batch.length; i++) {
-    runBatch(batch[i]);
-  }
+  runBatch(batch);
 }
 
 var channel = new MessageChannel();
@@ -293,13 +291,18 @@ function sendAPI (msg) {
   var str = JSON.stringify(msg);
   var a = enc.encode(str);
   var size = a.length;
+  console.log("sendAPI", size, msg);
   var b = new ArrayBuffer(size);
   const uint8 = new Uint8Array(b);
   uint8.set(a, 0);
   // non-blocking
-  console.log("sendAPI", size);
   g_worker.postMessage({data : b}, [b]);
 }
+
+// window.setInterval(function() {
+//   var emptyMsg = new ArrayBuffer(0);
+//   sendAPI();
+// }, 1000);
 
 function jsaddleJsInit(worker) {
   g_worker = worker;
