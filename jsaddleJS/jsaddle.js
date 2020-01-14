@@ -328,6 +328,9 @@ function jsaddleHandlerMsgs (msgs) {
 var jsaddleMsgSharedBuf = new SharedArrayBuffer(10*1024*1024);
 var jsaddleMsgBufArray = new Uint8Array(jsaddleMsgSharedBuf);
 var jsaddleMsgBufArray32 = new Uint32Array(jsaddleMsgSharedBuf);
+// Atomics.wait need Int32
+var jsaddleMsgBufArrayInt32 = new Int32Array(jsaddleMsgSharedBuf);
+var jsaddle_sendMsgWorker = new Worker('jsaddle_sendMsgWorker.js');
 
 function sendAPI (msg) {
   var str = JSON.stringify(msg);
@@ -338,32 +341,19 @@ function sendAPI (msg) {
   dataview.setUint32(0, size);
   const uint8 = new Uint8Array(b);
   uint8.set(a, 4);
-  // non-blocking
-  appendMsgToSharedBuf(uint8);
-}
-
-async function appendMsgToSharedBuf(buf) {
-  var isAlreadyLocked = Atomics.compareExchange(jsaddleMsgBufArray32, 0, 0, 1);
-  if (isAlreadyLocked === 1) {
-    Atomics.wait(jsaddleMsgBufArray32, 0, 0);
-    appendMsgToSharedBuf(buf);
-  } else {
-    var len = buf.byteLength;
-    var prevLen = jsaddleMsgBufArray32[1];
-    var totalLen = len + prevLen;
-    var startOffset = prevLen + 8; // Two 32 bit uint
-    var i = len;
-    while (i--) jsaddleMsgBufArray[startOffset + i] = buf[i];
-    jsaddleMsgBufArray32[1] = totalLen;
-    // Release the lock
-    jsaddleMsgBufArray32[0] = 0;
-  }
+  jsaddle_sendMsgWorker.postMessage({
+    buf: b,
+    jsaddleMsgBufArrayInt32: jsaddleMsgBufArrayInt32,
+    jsaddleMsgBufArray32: jsaddleMsgBufArray32,
+    jsaddleMsgBufArray: jsaddleMsgBufArray
+  }, [b]);
 }
 
 function jsaddleJsInit() {
   return {
     jsaddleListener: channel.port2,
     jsaddleMsgBufArray: jsaddleMsgBufArray,
-    jsaddleMsgBufArray32: jsaddleMsgBufArray32
+    jsaddleMsgBufArray32: jsaddleMsgBufArray32,
+    jsaddleMsgBufArrayInt32: jsaddleMsgBufArrayInt32
   };
 }

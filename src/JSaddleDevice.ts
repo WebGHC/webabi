@@ -11,9 +11,11 @@ export class JSaddleDevice implements Device {
   constructor(
     jsaddleListener: MessagePort,
     jsaddleMsgBufArray: Uint8Array,
-    jsaddleMsgBufArray32: Uint32Array) {
+    jsaddleMsgBufArray32: Uint32Array,
+    jsaddleMsgBufArrayInt32: Int32Array
+  ) {
     this._file = new JSaddleDeviceFile(this, jsaddleListener
-                                  , jsaddleMsgBufArray, jsaddleMsgBufArray32);
+                                  , jsaddleMsgBufArray, jsaddleMsgBufArray32, jsaddleMsgBufArrayInt32);
   }
 
   public open(flag: FileFlag): File {
@@ -31,7 +33,8 @@ export class JSaddleDeviceFile extends BaseFile implements File {
     private _Device: JSaddleDevice,
     private _jsaddleListener: MessagePort,
     private _jsaddleMsgBufArray: Uint8Array,
-    private _jsaddleMsgBufArray32: Uint32Array) {
+    private _jsaddleMsgBufArray32: Uint32Array,
+    private _jsaddleMsgBufArrayInt32: Int32Array) {
     super();
   }
   public getPos(): number | undefined {
@@ -94,7 +97,7 @@ export class JSaddleDeviceFile extends BaseFile implements File {
   }
   public readSync(buffer: Buffer, offset: number, length: number, position: number | null): number {
     var bytes_read = 0;
-    var isAlreadyLocked = Atomics.compareExchange(this._jsaddleMsgBufArray32, 0, 0, 1);
+    var isAlreadyLocked = Atomics.compareExchange(this._jsaddleMsgBufArrayInt32, 0, 0, 1);
     if (isAlreadyLocked === 0) {
       var bytes_available = this._jsaddleMsgBufArray32[1];
       if (bytes_available > 0) {
@@ -118,7 +121,7 @@ export class JSaddleDeviceFile extends BaseFile implements File {
         }
       }
       // Release the lock
-      this._jsaddleMsgBufArray32[0] = 0;
+      this._jsaddleMsgBufArrayInt32[0] = 0;
     }
     return bytes_read;
   }
