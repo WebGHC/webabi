@@ -7,7 +7,7 @@ onmessage = function (msg) {
   var jsaddleMsgBufArray = msg.data.jsaddleMsgBufArray;
   const uint8 = new Uint8Array(msg.data.buf);
   var appendMsgToSharedBuf = function () {
-    var isAlreadyLocked = Atomics.compareExchange(jsaddleMsgBufArrayInt32, 0, 0, 10);
+    var isAlreadyLocked = Atomics.compareExchange(jsaddleMsgBufArrayInt32, 0, 0, 1);
     if (isAlreadyLocked === 1) {
       Atomics.wait(jsaddleMsgBufArrayInt32, 0, 0, 10);
       appendMsgToSharedBuf();

@@ -100,7 +100,7 @@ export class JSaddleDeviceFile extends BaseFile implements File {
     var isAlreadyLocked = Atomics.compareExchange(this._jsaddleMsgBufArrayInt32, 0, 0, 1);
     if (isAlreadyLocked === 1) {
       Atomics.wait(this._jsaddleMsgBufArrayInt32, 0, 0, 10);
-      this.readSync(buffer, offset, length, position);
+      bytes_read = this.readSync(buffer, offset, length, position);
     } else {
       var bytes_available = this._jsaddleMsgBufArray32[1];
       if (bytes_available > 0) {
