@@ -110,11 +110,8 @@ export class JSaddleDeviceFile extends BaseFile implements File {
           while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
 
           // Shift the remaining contents, and set size
-          var target = 8;
-          var start = length + 8 + 1;
-          var len = bytes_available - length;
-          this._jsaddleMsgBufArray.copyWithin(target, start, len);
-          this._jsaddleMsgBufArray32[1] = len;
+          this._jsaddleMsgBufArray.copyWithin(8, length + 8, bytes_available + 8);
+          this._jsaddleMsgBufArray32[1] = bytes_available - length;
         } else {
           var i = bytes_available;
           bytes_read = bytes_available;
