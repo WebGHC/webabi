@@ -97,31 +97,61 @@ export class JSaddleDeviceFile extends BaseFile implements File {
   }
   public readSync(buffer: Buffer, offset: number, length: number, position: number | null): number {
     var bytes_read = 0;
-    var isAlreadyLocked = Atomics.compareExchange(this._jsaddleMsgBufArrayInt32, 0, 0, 1);
-    if (isAlreadyLocked === 1) {
+    var lockValue = Atomics.compareExchange(this._jsaddleMsgBufArrayInt32, 0, 0, 2);
+    if (lockValue === 1) { // Locked by appendMsgToSharedBuf
       Atomics.wait(this._jsaddleMsgBufArrayInt32, 0, 0, 10);
       bytes_read = this.readSync(buffer, offset, length, position);
     } else {
-      var bytes_available = this._jsaddleMsgBufArray32[1];
-      if (bytes_available > 0) {
-        if (bytes_available > length) {
-          let i : number = length;
-          bytes_read = i;
-          while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
+      var payloadSize = this._jsaddleMsgBufArray32[1];
+      if (payloadSize > 0) {
+        if (lockValue === 3) { // continue append of data
+          if (payloadSize > length) {
+            // This block of code is never executed
+            // ie the length is always equal to payloadSize
+            let i : number = length;
+            bytes_read = i;
+            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
 
-          // Shift the remaining contents, and set size
-          this._jsaddleMsgBufArray.copyWithin(8, length + 8, bytes_available + 8);
-          this._jsaddleMsgBufArray32[1] = bytes_available - length;
-        } else {
-          var i = bytes_available;
-          bytes_read = bytes_available;
-          while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
-          // Set remaining bytes to 0
-          this._jsaddleMsgBufArray32[1] = 0;
+            // Shift the remaining contents, and set size
+            this._jsaddleMsgBufArray.copyWithin(8, length + 8, payloadSize + 8);
+            this._jsaddleMsgBufArray32[1] = payloadSize - length;
+            // Keep the lock
+            this._jsaddleMsgBufArrayInt32[0] = 3;
+          } else {
+            var i = payloadSize;
+            bytes_read = i;
+            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
+            // Set remaining bytes to 0
+            this._jsaddleMsgBufArray32[1] = 0;
+            // Release the lock
+            this._jsaddleMsgBufArrayInt32[0] = 0;
+          }
+        } else { // New read request, include the payloadSize in first 4 bytes
+          if ((payloadSize + 4) > length) {
+            let i : number = length;
+            bytes_read = length;
+            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
+
+            // Shift the remaining contents, and set size
+            this._jsaddleMsgBufArray.copyWithin(8, length + 4, payloadSize + 8);
+            this._jsaddleMsgBufArray32[1] = payloadSize - (length - 4);
+            // Keep the lock
+            this._jsaddleMsgBufArrayInt32[0] = 3;
+          } else {
+            // console.log("4>");
+            var i = payloadSize + 4;
+            bytes_read = i;
+            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
+            // Set remaining bytes to 0
+            this._jsaddleMsgBufArray32[1] = 0;
+            // Release the lock
+            this._jsaddleMsgBufArrayInt32[0] = 0;
+          }
         }
+      } else {
+        // Release the lock
+        this._jsaddleMsgBufArrayInt32[0] = 0;
       }
-      // Release the lock
-      this._jsaddleMsgBufArrayInt32[0] = 0;
     }
     return bytes_read;
   }
