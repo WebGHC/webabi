@@ -105,44 +105,25 @@ export class JSaddleDeviceFile extends BaseFile implements File {
       var releaseLock = true;
       var payloadSize = this._jsaddleMsgBufArray32[1];
       if (payloadSize > 0) {
+        var startCopyFrom = 4;
+        var prependSizeBytes = 4;
         if (lockValue === 3) { // continue append of data
-          if (payloadSize > length) {
-            // This block of code is never executed
-            // ie the length is always equal to payloadSize
-            let i : number = length;
-            bytes_read = i;
-            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
-
-            // Shift the remaining contents, and set size
-            this._jsaddleMsgBufArray.copyWithin(8, length + 8, payloadSize + 8);
-            this._jsaddleMsgBufArray32[1] = payloadSize - length;
-            releaseLock = false;
-          } else {
-            var i = payloadSize;
-            bytes_read = i;
-            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
-            // Set remaining bytes to 0
-            this._jsaddleMsgBufArray32[1] = 0;
-          }
-        } else { // New read request, include the payloadSize in first 4 bytes
-          if ((payloadSize + 4) > length) {
-            let i : number = length;
-            bytes_read = length;
-            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
-
-            // Shift the remaining contents, and set size
-            this._jsaddleMsgBufArray.copyWithin(8, length + 4, payloadSize + 8);
-            this._jsaddleMsgBufArray32[1] = payloadSize - (length - 4);
-            releaseLock = false;
-          } else {
-            // console.log("4>");
-            var i = payloadSize + 4;
-            bytes_read = i;
-            while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
-            // Set remaining bytes to 0
-            this._jsaddleMsgBufArray32[1] = 0;
-          }
+          startCopyFrom = 8;
+          prependSizeBytes = 0;
         }
+        if ((prependSizeBytes + payloadSize) > length) {
+          bytes_read = length;
+          releaseLock = false;
+        } else {
+          bytes_read = prependSizeBytes + payloadSize;
+        }
+        buffer.set(this._jsaddleMsgBufArray.subarray(startCopyFrom, startCopyFrom + bytes_read), offset);
+
+        // Shift the remaining contents, and set size
+        if ((prependSizeBytes + payloadSize) > length) {
+          this._jsaddleMsgBufArray.copyWithin(8, startCopyFrom + length, payloadSize + 8);
+        }
+        this._jsaddleMsgBufArray32[1] = (prependSizeBytes + payloadSize) - bytes_read;
       }
       if (releaseLock) {
         // Release the lock
@@ -150,7 +131,7 @@ export class JSaddleDeviceFile extends BaseFile implements File {
         // @ts-ignore
         Atomics.notify(this._jsaddleMsgBufArrayInt32, 0);
       } else {
-        // Keep the lock
+        // Keep the lock, and continue append of data on next readSync call
         this._jsaddleMsgBufArrayInt32[0] = 3;
       }
     }
