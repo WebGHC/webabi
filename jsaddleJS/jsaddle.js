@@ -1,3 +1,7 @@
+// JSaddle JS code
+// The code is copied from jsaddle/src/Language/Javascript/JSaddle/Run/Files.hs
+
+// @@@@ START of JSaddle JS code @@@@
 var dec = new TextDecoder();
 var enc = new TextEncoder();
 
@@ -401,12 +405,12 @@ function h$byteArrayToBase64String(off, len, ba) {
   return window.btoa(bin);
 }
 
+// @@@@ END of JSaddle JS code @@@@
 
-//
 // Communication with JSaddleDevice running in the webabi webworker
 
 // Webabi Device -> JS
-// channel is used to receive messages for each SYS_Write call
+// MessageChannel is used to receive messages for each SYS_Write call
 // This is a non-blocking call on the webabi side
 //
 var channel = new MessageChannel();
@@ -439,16 +443,15 @@ function jsaddleHandlerMsgs (msgs) {
 
 // JS -> Webabi Device
 // SharedArrayBuffer is used to communicate back to JSaddleDevice in wasm side.
-// Since the jsaddle-wasm will do a SYS_read whenever it is free
-// append all the messages in this buffer.
+// The jsaddle-wasm will do a SYS_read to read the data.
 //
 
-// First UInt (32 bits), hold a lock to the read/write of this shared buffer
+// The first Int (32 bits) hold a lock to the read/write of this shared buffer
 // and this value should be read/written with atomic operations.
-// Second UInt (32 bits), indicate size of payload currently in this buffer
+// The second UInt (32 bits) indicates the total size of payload currently in the buffer
 // After that buffer contains the payload
 // Note: the payload can contain multiple encoded messages
-// There for each message is prepended with its own size.
+// Each message is prepended with its own size.
 var jsaddleMsgSharedBuf = new SharedArrayBuffer(10*1024*1024);
 var jsaddleMsgBufArray = new Uint8Array(jsaddleMsgSharedBuf);
 var jsaddleMsgBufArray32 = new Uint32Array(jsaddleMsgSharedBuf);

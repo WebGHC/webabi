@@ -4,7 +4,7 @@
 // The payload (msg) contains 4 bytes for length + actual message
 // The whole payload is written to the SharedArrayBuffer in one go
 // but it might be read by the other side in pieces
-// While the HS side is reading the messages it will keep the lock
+// While the HS side is reading the messages, it will keep the lock (the value of 0 index will be non-zero)
 onmessage = function (msg) {
   var jsaddleMsgBufArrayInt32 = msg.data.jsaddleMsgBufArrayInt32;
   var jsaddleMsgBufArray32 = msg.data.jsaddleMsgBufArray32;
