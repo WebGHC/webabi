@@ -31,6 +31,7 @@ onmessage = function (msg) {
       jsaddleMsgBufArray32[1] = totalLen;
       // Release the lock
       jsaddleMsgBufArrayInt32[0] = 0;
+      Atomics.notify(jsaddleMsgBufArrayInt32, 0);
       return true;
     }
   };

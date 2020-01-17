@@ -99,9 +99,10 @@ export class JSaddleDeviceFile extends BaseFile implements File {
     var bytes_read = 0;
     var lockValue = Atomics.compareExchange(this._jsaddleMsgBufArrayInt32, 0, 0, 2);
     if (lockValue === 1) { // Locked by appendMsgToSharedBuf
-      Atomics.wait(this._jsaddleMsgBufArrayInt32, 0, 0, 10);
+      Atomics.wait(this._jsaddleMsgBufArrayInt32, 0, 0, 50);
       bytes_read = this.readSync(buffer, offset, length, position);
     } else {
+      var releaseLock = true;
       var payloadSize = this._jsaddleMsgBufArray32[1];
       if (payloadSize > 0) {
         if (lockValue === 3) { // continue append of data
@@ -115,16 +116,13 @@ export class JSaddleDeviceFile extends BaseFile implements File {
             // Shift the remaining contents, and set size
             this._jsaddleMsgBufArray.copyWithin(8, length + 8, payloadSize + 8);
             this._jsaddleMsgBufArray32[1] = payloadSize - length;
-            // Keep the lock
-            this._jsaddleMsgBufArrayInt32[0] = 3;
+            releaseLock = false;
           } else {
             var i = payloadSize;
             bytes_read = i;
             while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
             // Set remaining bytes to 0
             this._jsaddleMsgBufArray32[1] = 0;
-            // Release the lock
-            this._jsaddleMsgBufArrayInt32[0] = 0;
           }
         } else { // New read request, include the payloadSize in first 4 bytes
           if ((payloadSize + 4) > length) {
@@ -135,8 +133,7 @@ export class JSaddleDeviceFile extends BaseFile implements File {
             // Shift the remaining contents, and set size
             this._jsaddleMsgBufArray.copyWithin(8, length + 4, payloadSize + 8);
             this._jsaddleMsgBufArray32[1] = payloadSize - (length - 4);
-            // Keep the lock
-            this._jsaddleMsgBufArrayInt32[0] = 3;
+            releaseLock = false;
           } else {
             // console.log("4>");
             var i = payloadSize + 4;
@@ -144,13 +141,17 @@ export class JSaddleDeviceFile extends BaseFile implements File {
             while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 4];
             // Set remaining bytes to 0
             this._jsaddleMsgBufArray32[1] = 0;
-            // Release the lock
-            this._jsaddleMsgBufArrayInt32[0] = 0;
           }
         }
-      } else {
+      }
+      if (releaseLock) {
         // Release the lock
         this._jsaddleMsgBufArrayInt32[0] = 0;
+        // @ts-ignore
+        Atomics.notify(this._jsaddleMsgBufArrayInt32, 0);
+      } else {
+        // Keep the lock
+        this._jsaddleMsgBufArrayInt32[0] = 3;
       }
     }
     return bytes_read;
