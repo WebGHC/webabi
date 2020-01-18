@@ -11,9 +11,11 @@ export class JSaddleDevice implements Device {
   constructor(
     jsaddleListener: MessagePort,
     jsaddleMsgBufArray: Uint8Array,
-    jsaddleMsgBufArray32: Uint32Array) {
+    jsaddleMsgBufArray32: Uint32Array,
+    jsaddleMsgBufArrayInt32: Int32Array
+  ) {
     this._file = new JSaddleDeviceFile(this, jsaddleListener
-                                  , jsaddleMsgBufArray, jsaddleMsgBufArray32);
+                                  , jsaddleMsgBufArray, jsaddleMsgBufArray32, jsaddleMsgBufArrayInt32);
   }
 
   public open(flag: FileFlag): File {
@@ -31,7 +33,8 @@ export class JSaddleDeviceFile extends BaseFile implements File {
     private _Device: JSaddleDevice,
     private _jsaddleListener: MessagePort,
     private _jsaddleMsgBufArray: Uint8Array,
-    private _jsaddleMsgBufArray32: Uint32Array) {
+    private _jsaddleMsgBufArray32: Uint32Array,
+    private _jsaddleMsgBufArrayInt32: Int32Array) {
     super();
   }
   public getPos(): number | undefined {
@@ -94,31 +97,43 @@ export class JSaddleDeviceFile extends BaseFile implements File {
   }
   public readSync(buffer: Buffer, offset: number, length: number, position: number | null): number {
     var bytes_read = 0;
-    var isAlreadyLocked = Atomics.compareExchange(this._jsaddleMsgBufArray32, 0, 0, 1);
-    if (isAlreadyLocked === 0) {
-      var bytes_available = this._jsaddleMsgBufArray32[1];
-      if (bytes_available > 0) {
-        if (bytes_available > length) {
-          let i : number = length;
-          bytes_read = i;
-          while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
-
-          // Shift the remaining contents, and set size
-          var target = 8;
-          var start = length + 8 + 1;
-          var len = bytes_available - length;
-          this._jsaddleMsgBufArray.copyWithin(target, start, len);
-          this._jsaddleMsgBufArray32[1] = len;
-        } else {
-          var i = bytes_available;
-          bytes_read = bytes_available;
-          while (i--) buffer[offset + i] = this._jsaddleMsgBufArray[i + 8];
-          // Set remaining bytes to 0
-          this._jsaddleMsgBufArray32[1] = 0;
+    var lockValue = Atomics.compareExchange(this._jsaddleMsgBufArrayInt32, 0, 0, 2);
+    if (lockValue === 1) { // Locked by appendMsgToSharedBuf
+      Atomics.wait(this._jsaddleMsgBufArrayInt32, 0, 0, 50);
+      bytes_read = this.readSync(buffer, offset, length, position);
+    } else {
+      var releaseLock = true;
+      var payloadSize = this._jsaddleMsgBufArray32[1];
+      if (payloadSize > 0) {
+        var startCopyFrom = 4;
+        var prependSizeBytes = 4;
+        if (lockValue === 3) { // continue append of data
+          startCopyFrom = 8;
+          prependSizeBytes = 0;
         }
+        if ((prependSizeBytes + payloadSize) > length) {
+          bytes_read = length;
+          releaseLock = false;
+        } else {
+          bytes_read = prependSizeBytes + payloadSize;
+        }
+        buffer.set(this._jsaddleMsgBufArray.subarray(startCopyFrom, startCopyFrom + bytes_read), offset);
+
+        // Shift the remaining contents, and set size
+        if ((prependSizeBytes + payloadSize) > length) {
+          this._jsaddleMsgBufArray.copyWithin(8, startCopyFrom + length, payloadSize + 8);
+        }
+        this._jsaddleMsgBufArray32[1] = (prependSizeBytes + payloadSize) - bytes_read;
       }
-      // Release the lock
-      this._jsaddleMsgBufArray32[0] = 0;
+      if (releaseLock) {
+        // Release the lock
+        this._jsaddleMsgBufArrayInt32[0] = 0;
+        // @ts-ignore
+        Atomics.notify(this._jsaddleMsgBufArrayInt32, 0);
+      } else {
+        // Keep the lock, and continue append of data on next readSync call
+        this._jsaddleMsgBufArrayInt32[0] = 3;
+      }
     }
     return bytes_read;
   }

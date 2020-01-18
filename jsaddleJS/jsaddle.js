@@ -1,3 +1,7 @@
+// JSaddle JS code
+// The code is copied from jsaddle/src/Language/Javascript/JSaddle/Run/Files.hs
+
+// @@@@ START of JSaddle JS code @@@@
 var dec = new TextDecoder();
 var enc = new TextEncoder();
 
@@ -279,10 +283,134 @@ function jsaddleHandler(msg) {
   runBatch(batch);
 }
 
+// ghcjs helper functions
+function h$isNumber(o) {
+    return typeof(o) === 'number';
+}
+
+// returns true for null, but not for functions and host objects
+function h$isObject(o) {
+    return typeof(o) === 'object';
+}
+
+function h$isString(o) {
+    return typeof(o) === 'string';
+}
+
+function h$isSymbol(o) {
+    return typeof(o) === 'symbol';
+}
+
+function h$isBoolean(o) {
+    return typeof(o) === 'boolean';
+}
+
+function h$isFunction(o) {
+    return typeof(o) === 'function';
+}
+
+function h$jsTypeOf(o) {
+    var t = typeof(o);
+    if(t === 'undefined') return 0;
+    if(t === 'object')    return 1;
+    if(t === 'boolean')   return 2;
+    if(t === 'number')    return 3;
+    if(t === 'string')    return 4;
+    if(t === 'symbol')    return 5;
+    if(t === 'function')  return 6;
+    return 7; // other, host object etc
+}
+
+function h$jsonTypeOf(o) {
+    if (!(o instanceof Object)) {
+        if (o == null) {
+            return 0;
+        } else if (typeof o == 'number') {
+            if (h$isInteger(o)) {
+                return 1;
+            } else {
+                return 2;
+            }
+        } else if (typeof o == 'boolean') {
+            return 3;
+        } else {
+            return 4;
+        }
+    } else {
+        if (Object.prototype.toString.call(o) == '[object Array]') {
+            // it's an array
+            return 5;
+        } else if (!o) {
+            // null
+            return 0;
+        } else {
+            // it's an object
+            return 6;
+        }
+    }
+
+}
+function h$roundUpToMultipleOf(n,m) {
+  var rem = n % m;
+  return rem === 0 ? n : n - rem + m;
+}
+
+function h$newByteArray(len) {
+  var len0 = Math.max(h$roundUpToMultipleOf(len, 8), 8);
+  var buf = new ArrayBuffer(len0);
+  return { buf: buf
+         , len: len
+         , i3: new Int32Array(buf)
+         , u8: new Uint8Array(buf)
+         , u1: new Uint16Array(buf)
+         , f3: new Float32Array(buf)
+         , f6: new Float64Array(buf)
+         , dv: new DataView(buf)
+         }
+}
+function h$wrapBuffer(buf, unalignedOk, offset, length) {
+  if(!unalignedOk && offset && offset % 8 !== 0) {
+    throw ("h$wrapBuffer: offset not aligned:" + offset);
+  }
+  if(!buf || !(buf instanceof ArrayBuffer))
+    throw "h$wrapBuffer: not an ArrayBuffer"
+  if(!offset) { offset = 0; }
+  if(!length || length < 0) { length = buf.byteLength - offset; }
+  return { buf: buf
+         , len: length
+         , i3: (offset%4) ? null : new Int32Array(buf, offset, length >> 2)
+         , u8: new Uint8Array(buf, offset, length)
+         , u1: (offset%2) ? null : new Uint16Array(buf, offset, length >> 1)
+         , f3: (offset%4) ? null : new Float32Array(buf, offset, length >> 2)
+         , f6: (offset%8) ? null : new Float64Array(buf, offset, length >> 3)
+         , dv: new DataView(buf, offset, length)
+         };
+}
+function h$newByteArrayFromBase64String(base64) {
+  var bin = window.atob(base64);
+  var ba = h$newByteArray(bin.length);
+  var u8 = ba.u8;
+  for (var i = 0; i < bin.length; i++) {
+    u8[i] = bin.charCodeAt(i);
+  }
+  return ba;
+}
+function h$byteArrayToBase64String(off, len, ba) {
+  var bin = '';
+  var u8 = ba.u8;
+  var end = off + len;
+  for (var i = off; i < end; i++) {
+    bin += String.fromCharCode(u8[i]);
+  }
+  return window.btoa(bin);
+}
+
+// @@@@ END of JSaddle JS code @@@@
+
 // Communication with JSaddleDevice running in the webabi webworker
 
 // Webabi Device -> JS
-// channel is used to receive messages for each SYS_Write call
+// MessageChannel is used to receive messages for each SYS_Write call
 // This is a non-blocking call on the webabi side
 //
 var channel = new MessageChannel();
@@ -315,19 +443,21 @@ function jsaddleHandlerMsgs (msgs) {
 
 // JS -> Webabi Device
 // SharedArrayBuffer is used to communicate back to JSaddleDevice in wasm side.
-// Since the jsaddle-wasm will do a SYS_read whenever it is free
-// append all the messages in this buffer.
+// The jsaddle-wasm will do a SYS_read to read the data.
 //
 
-// First UInt (32 bits), hold a lock to the read/write of this shared buffer
+// The first Int (32 bits) hold a lock to the read/write of this shared buffer
 // and this value should be read/written with atomic operations.
-// Second UInt (32 bits), indicate size of payload currently in this buffer
+// The second UInt (32 bits) indicates the total size of payload currently in the buffer
 // After that buffer contains the payload
 // Note: the payload can contain multiple encoded messages
-// There for each message is prepended with its own size.
+// Each message is prepended with its own size.
 var jsaddleMsgSharedBuf = new SharedArrayBuffer(10*1024*1024);
 var jsaddleMsgBufArray = new Uint8Array(jsaddleMsgSharedBuf);
 var jsaddleMsgBufArray32 = new Uint32Array(jsaddleMsgSharedBuf);
+// Atomics.wait need Int32
+var jsaddleMsgBufArrayInt32 = new Int32Array(jsaddleMsgSharedBuf);
+var jsaddle_sendMsgWorker = new Worker('jsaddle_sendMsgWorker.js');
 
 function sendAPI (msg) {
   var str = JSON.stringify(msg);
@@ -338,32 +468,19 @@ function sendAPI (msg) {
   dataview.setUint32(0, size);
   const uint8 = new Uint8Array(b);
   uint8.set(a, 4);
-  // non-blocking
-  appendMsgToSharedBuf(uint8);
-}
-
-async function appendMsgToSharedBuf(buf) {
-  var isAlreadyLocked = Atomics.compareExchange(jsaddleMsgBufArray32, 0, 0, 1);
-  if (isAlreadyLocked === 1) {
-    Atomics.wait(jsaddleMsgBufArray32, 0, 0);
-    appendMsgToSharedBuf(buf);
-  } else {
-    var len = buf.byteLength;
-    var prevLen = jsaddleMsgBufArray32[1];
-    var totalLen = len + prevLen;
-    var startOffset = prevLen + 8; // Two 32 bit uint
-    var i = len;
-    while (i--) jsaddleMsgBufArray[startOffset + i] = buf[i];
-    jsaddleMsgBufArray32[1] = totalLen;
-    // Release the lock
-    jsaddleMsgBufArray32[0] = 0;
-  }
+  jsaddle_sendMsgWorker.postMessage({
+    buf: b,
+    jsaddleMsgBufArrayInt32: jsaddleMsgBufArrayInt32,
+    jsaddleMsgBufArray32: jsaddleMsgBufArray32,
+    jsaddleMsgBufArray: jsaddleMsgBufArray
+  }, [b]);
 }
 
 function jsaddleJsInit() {
   return {
     jsaddleListener: channel.port2,
     jsaddleMsgBufArray: jsaddleMsgBufArray,
-    jsaddleMsgBufArray32: jsaddleMsgBufArray32
+    jsaddleMsgBufArray32: jsaddleMsgBufArray32,
+    jsaddleMsgBufArrayInt32: jsaddleMsgBufArrayInt32
   };
 }

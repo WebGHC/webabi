@@ -536,8 +536,7 @@ export class Process {
   mmap2(addr: number, len: number, prot: number, flags: number, fd: number, offset: number): number {
     // Ignore prot and flags
     var currentSize = this.memoryEnd;
-    if ((fd === -1) && (offset === 0)
-        && ((addr === 0) || (addr === currentSize))) {
+    if ((fd === -1) && (offset === 0)) {
       var newSize = this.brk(currentSize + len);
       return currentSize;
     } else {
