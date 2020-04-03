@@ -457,7 +457,12 @@ var jsaddleMsgBufArray = new Uint8Array(jsaddleMsgSharedBuf);
 var jsaddleMsgBufArray32 = new Uint32Array(jsaddleMsgSharedBuf);
 // Atomics.wait need Int32
 var jsaddleMsgBufArrayInt32 = new Int32Array(jsaddleMsgSharedBuf);
-var jsaddle_sendMsgWorker = new Worker('jsaddle_sendMsgWorker.js');
+
+var jsaddle_sendMsgWorkerPathVar = 'jsaddle_sendMsgWorker.js';
+if (typeof(jsaddle_sendMsgWorkerPath) !== 'undefined') {
+  jsaddle_sendMsgWorkerPathVar = jsaddle_sendMsgWorkerPath;
+}
+var jsaddle_sendMsgWorker = new Worker(jsaddle_sendMsgWorkerPathVar);
 
 function sendAPI (msg) {
   var str = JSON.stringify(msg);
