@@ -295,6 +295,9 @@ export class Process {
         return this.readlinkat(arg1, arg2, arg3, arg4);
       case Syscall.SYS_fstat64:
         return this.fstat64(arg1, arg2);
+      case Syscall.SYS_stat64:
+        // console.warn("stat64 being ignored");
+        return  0;
       default:
         throw (Syscall[sys] + " NYI");
     }
