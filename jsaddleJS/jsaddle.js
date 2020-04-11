@@ -21,7 +21,7 @@ var inCallback = 0;
 var asyncBatch = null;
 
 // runBatch :: (ByteString -> ByteString) -> Maybe (ByteString -> ByteString) -> ByteString
-function jsaddleHandler(m) {
+function jsaddleHandler(m, sendSync) {
   // var m = dec.decode(msg);
   var batch = JSON.parse(m);
   var runBatch = function (firstBatch, initialSyncDepth) {
@@ -119,7 +119,11 @@ function jsaddleHandler(m) {
                         jsaddle_values.set(nArg, arguments[i]);
                         args[i] = nArg;
                       }
-                      sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
+                      if(inCallback > 0) {
+                        sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
+                      } else {
+                        runBatch(sendSync ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]}), 1);
+                      }
                     };
                     jsaddle_values.set(nFunction, func);
                   })();
@@ -244,15 +248,26 @@ function jsaddleHandler(m) {
               sendAPI ({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
               break;
             } else {
-              sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}]});
-              break;
+              lastResults = [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}];
+              batch = sendSync ({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
+              results = [];
+              callbacksToFree = [];
+              // sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}]});
+              // break;
             }
           } else {
             if(syncDepth <= 0) {
               break;
             } else {
-              sendAPI ({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
-              break;
+              if(batch[2] === expectedBatch - 1) {
+                batch = sendSync({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
+              } else {
+                batch = sendSync({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
+              }
+              results = [];
+              callbacksToFree = [];
+              // sendAPI ({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
+              // break;
             }
           }
         }
@@ -456,7 +471,7 @@ function jsaddleDriver(wasm_process) {
   console.log(commands);
   window.setInterval( function() {
     for (var i = 0; i < commands.length; i++) {
-      jsaddleHandler(commands[i]);
+      jsaddleHandler(commands[i], function (msg) {var str = JSON.stringify(msg); return wasm_process.process_sync(str);});
     };
     commands = [];
     var p = [];

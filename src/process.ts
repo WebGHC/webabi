@@ -218,6 +218,22 @@ export class Process {
     return retMsgs;
   }
 
+  process_sync(str: string): string {
+    if (this.msgBufferPtr == 0) {
+      console.log("allocating msgBufferPtr");
+      this.msgBufferPtr = this.instance.exports.jsaddleBufferAlloc(1000*1000);
+    }
+    var ptr = this.msgBufferPtr;
+    var msg = this.textEncoder.encode(str);
+    this.heap_uint8.set(msg, ptr);
+    var dataLen = msg.byteLength;
+    var n = this.instance.exports.appExecSync(dataLen);
+
+    var pos = this.msgBufferPtr;
+    var size = n;
+    var retMsg = this.textDecoder.decode(this.heap_uint8.slice(pos, pos + size));
+    return retMsg;
+  }
   heapStr(ptr: number): string {
     const end = this.heap_uint8.indexOf(0, ptr);
     if (end === -1) {
