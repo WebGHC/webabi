@@ -6,12 +6,10 @@
 
   <body>
     <script src="jsaddle.js"></script>
-    <script>
-      var jsaddleVals = jsaddleJsInit();
-      const worker = new Worker("worker_runner.js");
-      worker.postMessage({ url: "jsaddle-wasm-test.wasm"
-                         , jsaddleVals: jsaddleVals }
-                       , [jsaddleVals.jsaddleListener]);
-    </script>
+    <script src="simple_runner.js"></script>
+    <!-- <script type="module" src="run_jsaddle.js"></script> -->
+    <!-- <script>
+         console.log(someval);
+         </script> -->
   </body>
 </html>

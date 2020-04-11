@@ -55,6 +55,8 @@ export class Process {
   textEncoder: TextEncoder = new TextEncoder();
   nanosleepWaiter: Int32Array = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
+  msgBufferPtr: number = 0;
+
   static async instantiateProcess(fs: FS, url: string): Promise<Process> {
     const proc = new Process(fs);
     const syscall = proc.syscall.bind(proc);
@@ -156,6 +158,64 @@ export class Process {
         throw e;
       }
     }
+  }
+
+  encodeMsg(str:string): Uint8Array {
+    var a = this.textEncoder.encode(str);
+    var size = a.length;
+    var b = new ArrayBuffer(size + 4);
+    var dataview = new DataView(b);
+    dataview.setUint32(0, size);
+    const uint8 = new Uint8Array(b);
+    uint8.set(a, 4);
+    return uint8;
+  }
+
+  // decodeMsg(str:string): string {
+  //   var a = this.textDecoder(str);
+  //   var size = a.length;
+  //   var b = new ArrayBuffer(size + 4);
+  //   var dataview = new DataView(b);
+  //   dataview.setUint32(0, size);
+  //   const uint8 = new Uint8Array(b);
+  //   uint8.set(a, 4);
+  //   return dec.decode(msg);
+  // }
+  // appendBuffer (buffer1: Uint8Array, buffer2: Uint8Array ): Uint8Array {
+  //   var tmp = new Uint8Array( buffer1.byteLength + buffer2.byteLength );
+  //   tmp.set( new Uint8Array( buffer1 ), 0 );
+  //   tmp.set( new Uint8Array( buffer2 ), buffer1.byteLength );
+  //   return tmp.buffer;
+  // }
+
+  process_async(msgs: string[]): string[] {
+    if (this.msgBufferPtr == 0) {
+      console.log("allocating msgBufferPtr");
+      this.msgBufferPtr = this.instance.exports.jsaddleBufferAlloc(1000*1000);
+    }
+    var ptr = this.msgBufferPtr;
+    for (var i = 0; i < msgs.length; i++) {
+      // Copy to heap
+      // var msg = this.encodeMsg(msgs[i]);
+      var msg = this.textEncoder.encode(msgs[i]);
+      this.heap_uint8.set(msg, ptr);
+      ptr = ptr + msg.byteLength;
+    }
+    var dataLen = ptr - this.msgBufferPtr;
+    var n = this.instance.exports.appExecStep(dataLen);
+    var retMsgs = [];
+    if (n > 0) {
+      var done = 0;
+      while (done < n) {
+        var pos = this.msgBufferPtr + done;
+        // var size = this.heap_uint32[pos/Int32Array.BYTES_PER_ELEMENT];
+        var size = n;
+        var thisMsg = this.heap_uint8.slice(pos, pos + size);
+        done = size;
+        retMsgs.push(this.textDecoder.decode(thisMsg));
+      }
+    }
+    return retMsgs;
   }
 
   heapStr(ptr: number): string {
