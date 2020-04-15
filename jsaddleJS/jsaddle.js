@@ -468,25 +468,20 @@ function jsaddleDriver(wasm_process) {
   wasm_process.start([], []);
   var commands = [];
   commands = wasm_process.process_async([]);
-  console.log(commands);
   window.setInterval( function() {
     for (var i = 0; i < commands.length; i++) {
-      jsaddleHandler(commands[i], function (msg) {var str = JSON.stringify(msg); return wasm_process.process_sync(str);});
+      jsaddleHandler(commands[i],
+                     function (msg) {
+                       var str = JSON.stringify(msg);
+                       var ret = wasm_process.process_sync(str);
+                       return (JSON.parse(ret));
+                     });
     };
     commands = [];
     var p = [];
-    if (pendingAsyncMessages.length > 0) {
+    while (pendingAsyncMessages.length > 0) {
       p = pendingAsyncMessages.shift();
+      commands.push.apply(commands, wasm_process.process_async(p));
     }
-    console.log("pending messages", p);
-    commands = wasm_process.process_async(p);
-  }, 200);
+  }, 50);
 }
-// function jsaddleJsInit() {
-//   return {
-//     jsaddleListener: channel.port2,
-//     jsaddleMsgBufArray: jsaddleMsgBufArray,
-//     jsaddleMsgBufArray32: jsaddleMsgBufArray32,
-//     jsaddleMsgBufArrayInt32: jsaddleMsgBufArrayInt32
-//   };
-// }

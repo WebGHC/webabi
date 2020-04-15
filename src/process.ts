@@ -188,33 +188,26 @@ export class Process {
   //   return tmp.buffer;
   // }
 
-  process_async(msgs: string[]): string[] {
+  process_async(str: string): string[] {
     if (this.msgBufferPtr == 0) {
       console.log("allocating msgBufferPtr");
       this.msgBufferPtr = this.instance.exports.jsaddleBufferAlloc(1000*1000);
     }
     var ptr = this.msgBufferPtr;
-    for (var i = 0; i < msgs.length; i++) {
-      // Copy to heap
-      // var msg = this.encodeMsg(msgs[i]);
-      var msg = this.textEncoder.encode(msgs[i]);
-      this.heap_uint8.set(msg, ptr);
-      ptr = ptr + msg.byteLength;
-    }
-    var dataLen = ptr - this.msgBufferPtr;
-    var n = this.instance.exports.appExecStep(dataLen);
+    var msg = this.textEncoder.encode(str);
+    this.heap_uint8.set(msg, ptr);
+    var dataLen = msg.byteLength;
+    var n = 0;
     var retMsgs = [];
-    if (n > 0) {
-      var done = 0;
-      while (done < n) {
-        var pos = this.msgBufferPtr + done;
-        // var size = this.heap_uint32[pos/Int32Array.BYTES_PER_ELEMENT];
-        var size = n;
-        var thisMsg = this.heap_uint8.slice(pos, pos + size);
-        done = size;
-        retMsgs.push(this.textDecoder.decode(thisMsg));
-      }
-    }
+    do {
+      n = this.instance.exports.appExecStep(dataLen);
+      dataLen = 0;
+      if (n > 0) {
+          var size = n;
+          var thisMsg = this.heap_uint8.slice(ptr, ptr + size);
+          retMsgs.push(this.textDecoder.decode(thisMsg));
+        }
+    } while(n > 0);
     return retMsgs;
   }
 
