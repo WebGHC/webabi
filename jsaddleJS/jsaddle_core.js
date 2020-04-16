@@ -16,7 +16,7 @@ var inCallback = 0;
 var asyncBatch = null;
 
 // runBatch :: (ByteString -> ByteString) -> Maybe (ByteString -> ByteString) -> ByteString
-function runBatchWrapper(batch, sendAPI) {
+function runBatchWrapper(batch, sendAPI, sendSync) {
   var runBatch = function (firstBatch, initialSyncDepth) {
     var processBatch = function(timestamp) {
       var batch = firstBatch;
@@ -112,7 +112,15 @@ function runBatchWrapper(batch, sendAPI) {
                         jsaddle_values.set(nArg, arguments[i]);
                         args[i] = nArg;
                       }
-                      sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
+                      if (sendSync || 0) {
+                        if(inCallback > 0) {
+                          sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
+                        } else {
+                          runBatch(sendSync ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]}), 1);
+                        }
+                      } else {
+                        sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
+                      }
                     };
                     jsaddle_values.set(nFunction, func);
                   })();
@@ -237,15 +245,32 @@ function runBatchWrapper(batch, sendAPI) {
               sendAPI ({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
               break;
             } else {
-              sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}]});
-              break;
+              if (sendSync || 0) {
+                lastResults = [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}];
+                batch = sendSync ({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
+                results = [];
+                callbacksToFree = [];
+              } else {
+                sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}]});
+                break;
+              }
             }
           } else {
             if(syncDepth <= 0) {
               break;
             } else {
-              sendAPI ({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
-              break;
+              if (sendSync || 0) {
+                if(batch[2] === expectedBatch - 1) {
+                  batch = sendSync({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
+                } else {
+                  batch = sendSync({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
+                }
+                results = [];
+                callbacksToFree = [];
+              } else {
+                sendAPI ({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
+                break;
+              }
             }
           }
         }

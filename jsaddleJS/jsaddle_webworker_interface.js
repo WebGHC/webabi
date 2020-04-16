@@ -6,7 +6,7 @@ var enc = new TextEncoder();
 function jsaddleHandler(msg) {
   var m = dec.decode(msg);
   var batch = JSON.parse(m);
-  runBatchWrapper(batch, sendAPI);
+  runBatchWrapper(batch, sendAPI, null /* sendSync */ );
 }
 
 // Webabi Device -> JS
