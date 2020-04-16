@@ -53,10 +53,10 @@ export class Process {
   heap_uint32: Uint32Array;
   textDecoder: TextDecoder = new TextDecoder();
   textEncoder: TextEncoder = new TextEncoder();
-  nanosleepWaiter: Int32Array = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+  nanosleepWaiter: Int32Array;
 
-  static async instantiateProcess(fs: FS, url: string): Promise<Process> {
-    const proc = new Process(fs);
+  static async instantiateProcess(fs: FS, enableNanoSleepWaiter: boolean, url: string): Promise<Process> {
+    const proc = new Process(fs, enableNanoSleepWaiter);
     const syscall = proc.syscall.bind(proc);
     const syscall_ = proc.syscall_.bind(proc);
     const importObj = {
@@ -80,8 +80,13 @@ export class Process {
     return proc;
   }
 
-  constructor(fs: FS) {
+  constructor(fs: FS, enableNanoSleepWaiter: boolean) {
     this.fs = fs;
+    if (enableNanoSleepWaiter) {
+      this.nanosleepWaiter = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+    } else {
+      this.nanosleepWaiter = null;
+    }
   }
 
   setMemory(m: WebAssembly.Memory): void {
@@ -431,12 +436,14 @@ export class Process {
   _newselect(nfds: number, readfds_: number, writefds_: number, exceptfds_: number, timeout_: number): number {
     // ignore exceptfds_
 
-    const timeout = timeout_ / 4;
-    const timeoutSec = this.heap_uint32[timeout];
-    const timeoutUSec = this.heap_uint32[timeout + 1];
-    // nfds == 0 means this is just a timeout/delay request
-    if (nfds == 0 && (timeoutSec !== 0 ||  timeoutUSec !== 0)) {
-      Atomics.wait(this.nanosleepWaiter, 0, 0, timeoutSec * 1000 + timeoutUSec / 1000);
+    if (this.nanosleepWaiter !== null) {
+      const timeout = timeout_ / 4;
+      const timeoutSec = this.heap_uint32[timeout];
+      const timeoutUSec = this.heap_uint32[timeout + 1];
+      // nfds == 0 means this is just a timeout/delay request
+      if (nfds == 0 && (timeoutSec !== 0 ||  timeoutUSec !== 0)) {
+        Atomics.wait(this.nanosleepWaiter, 0, 0, timeoutSec * 1000 + timeoutUSec / 1000);
+      }
     }
 
     let nonzero = 0;
@@ -504,15 +511,17 @@ export class Process {
   }
 
   nanosleep(req: number, ret: number): number {
-    var seconds = this.heap_uint32[req / Int32Array.BYTES_PER_ELEMENT];
-    var nanoseconds = this.heap_uint32[(req / Int32Array.BYTES_PER_ELEMENT) + 1];
-    Atomics.wait(this.nanosleepWaiter, 0, 0, seconds * 1000 + nanoseconds / 1000000);
+    if (this.nanosleepWaiter !== null) {
+      var seconds = this.heap_uint32[req / Int32Array.BYTES_PER_ELEMENT];
+      var nanoseconds = this.heap_uint32[(req / Int32Array.BYTES_PER_ELEMENT) + 1];
+      Atomics.wait(this.nanosleepWaiter, 0, 0, seconds * 1000 + nanoseconds / 1000000);
+    }
     return 0;
   }
 
   poll(fds_: number, nfds: number, timeoutMSec: number): number {
     // nfds == 0 means this is just a timeout/delay request
-    if (nfds == 0) {
+    if (nfds == 0 && (this.nanosleepWaiter !== null)) {
       Atomics.wait(this.nanosleepWaiter, 0, 0, timeoutMSec);
     }
 

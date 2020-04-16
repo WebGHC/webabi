@@ -13,7 +13,7 @@ async function main(): Promise<void> {
       const execName: string = args[0];
       const fs = await configureFileSystem({ devices: {} });
       const env = Object.entries(process.env).map(([k, v]) => (k + "=" + v));
-      process.exit((await Process.instantiateProcess(fs, execName)).start(args, env));
+      process.exit((await Process.instantiateProcess(fs, true, execName)).start(args, env));
     }
   } catch(e) {
     console.error(e);
