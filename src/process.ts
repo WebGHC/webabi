@@ -54,6 +54,7 @@ export class Process {
   textDecoder: TextDecoder = new TextDecoder();
   textEncoder: TextEncoder = new TextEncoder();
   nanosleepWaiter: Int32Array;
+  jsaddleMsgBufferPtr: number = 0;
 
   static async instantiateProcess(fs: FS, enableNanoSleepWaiter: boolean, url: string): Promise<Process> {
     const proc = new Process(fs, enableNanoSleepWaiter);
@@ -161,6 +162,20 @@ export class Process {
         throw e;
       }
     }
+  }
+
+  processResult(isSync: boolean, str: string): string {
+    if (this.jsaddleMsgBufferPtr == 0) {
+      // TODO: XXX This should be adjusted based on str size on both JS and HS side
+      console.log("allocating jsaddleMsgBufferPtr");
+      this.jsaddleMsgBufferPtr = this.instance.exports.jsaddleBufferMalloc(1000*1000);
+    }
+    var ptr = this.jsaddleMsgBufferPtr;
+    var msg = this.textEncoder.encode(str);
+    this.heap_uint8.set(msg, ptr);
+    var n = this.instance.exports.jsaddleProcessResult(isSync, msg.byteLength);
+    var retMsg = this.textDecoder.decode(this.heap_uint8.slice(ptr, ptr + n));
+    return retMsg;
   }
 
   heapStr(ptr: number): string {
