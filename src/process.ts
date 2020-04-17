@@ -54,7 +54,7 @@ export class Process {
   textDecoder: TextDecoder = new TextDecoder();
   textEncoder: TextEncoder = new TextEncoder();
   nanosleepWaiter: Int32Array;
-  jsaddleMsgBufferPtr: number = 0;
+  jsaddleSharedMsgBuffer: number = 0;
 
   static async instantiateProcess(fs: FS, enableNanoSleepWaiter: boolean, url: string): Promise<Process> {
     const proc = new Process(fs, enableNanoSleepWaiter);
@@ -165,16 +165,26 @@ export class Process {
   }
 
   processResult(isSync: boolean, str: string): string {
-    if (this.jsaddleMsgBufferPtr == 0) {
-      // TODO: XXX This should be adjusted based on str size on both JS and HS side
-      console.log("allocating jsaddleMsgBufferPtr");
-      this.jsaddleMsgBufferPtr = this.instance.exports.jsaddleBufferMalloc(1000*1000);
+    if (this.jsaddleSharedMsgBuffer == 0) {
+      this.jsaddleSharedMsgBuffer = this.instance.exports.jsaddleBufferMalloc(1024*1024);
     }
-    var ptr = this.jsaddleMsgBufferPtr;
-    var msg = this.textEncoder.encode(str);
-    this.heap_uint8.set(msg, ptr);
+    // The ptr to SharedMsgBuffer does not change
+    var ptr32 = this.jsaddleSharedMsgBuffer / Int32Array.BYTES_PER_ELEMENT;
+    {
+      // First 4 bytes are pointer to buffer, next is size
+      var msg = this.textEncoder.encode(str);
+      var bufSize = this.heap_uint32[ptr32 + 1];
+      if (msg.byteLength > bufSize) {
+        this.instance.exports.jsaddleBufferMalloc(msg.byteLength);
+      }
+      var bufPtr = this.heap_uint32[ptr32];
+      this.heap_uint8.set(msg, bufPtr);
+    }
     var n = this.instance.exports.jsaddleProcessResult(isSync, msg.byteLength);
-    var retMsg = this.textDecoder.decode(this.heap_uint8.slice(ptr, ptr + n));
+    // The buffer could be re-allocated in haskell side, so get ptr again
+    // First 4 bytes are pointer to buffer
+    var bufPtr = this.heap_uint32[ptr32];
+    var retMsg = this.textDecoder.decode(this.heap_uint8.slice(bufPtr, bufPtr + n));
     return retMsg;
   }
 
