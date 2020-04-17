@@ -34,8 +34,15 @@ function jsaddleDriver(wasm_process) {
   jsaddleHandler(wasm_process.processResult(false, ""));
   // process async results
   window.setInterval( function() {
-    var results = pendingAsyncMessages;
-    pendingAsyncMessages = [];
-    jsaddleHandler(wasm_process.processResult(false, JSON.stringify(results)));
+    var doOneCall = function () {
+      var results = pendingAsyncMessages;
+      pendingAsyncMessages = [];
+      jsaddleHandler(wasm_process.processResult(false, JSON.stringify(results)));
+    };
+    doOneCall();
+    while (pendingAsyncMessages.length > 0) {
+      // Process all pending messages
+      doOneCall();
+    }
   }, 100);
 }
