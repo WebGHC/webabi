@@ -33,7 +33,7 @@ function jsaddleDriver(wasm_process) {
   // get the initial command and run it
   jsaddleHandler(wasm_process.processResult(false, ""));
   // process async results
-  window.setInterval( function() {
+  window.setTimeout( function runOuter() {
     var doOneCall = function () {
       var results = pendingAsyncMessages;
       pendingAsyncMessages = [];
@@ -44,5 +44,6 @@ function jsaddleDriver(wasm_process) {
       // Process all pending messages
       doOneCall();
     }
+    window.setTimeout(runOuter, 100);
   }, 100);
 }
