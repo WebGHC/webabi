@@ -7,9 +7,9 @@ export function startWasm (url, jsaddle_cont) {
 };
 
 // Somehow this export is not working
-// So instead specify the variables wasmFile and jsaddleDriver
+// So instead specify the variables WASM_URL_FOR_MAINTHREAD_RUNNER_JS and jsaddleDriver
 // in the global scope before importing this
 export { startWasm as start_wasm }
 
 // @ts-ignore
-startWasm(wasmFile, jsaddleDriver);
+startWasm(WASM_URL_FOR_MAINTHREAD_RUNNER_JS, jsaddleDriver);
