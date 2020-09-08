@@ -1,305 +1,361 @@
 // JSaddle JS code
-// This code is copied from jsaddle/src/Language/Javascript/JSaddle/Run/Files.hs
+// This code is copied from jsaddle/js/jsaddle-core.js
 
-// initState of JSaddle JS
-var jsaddle_values = new Map();
-var jsaddle_free = new Map();
-jsaddle_values.set(0, null);
-jsaddle_values.set(1, undefined);
-jsaddle_values.set(2, false);
-jsaddle_values.set(3, true);
-jsaddle_values.set(4, window);
-var jsaddle_index = 100;
-var expectedBatch = 1;
-var lastResults = [0, {"tag": "Success", "contents": [[], []]}];
-var inCallback = 0;
-var asyncBatch = null;
+function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_SIZE) {
+  /*
 
-// runBatch :: (ByteString -> ByteString) -> Maybe (ByteString -> ByteString) -> ByteString
-function runBatchWrapper(batch, sendAPI, sendSync) {
-  var runBatch = function (firstBatch, initialSyncDepth) {
-    var processBatch = function(timestamp) {
-      var batch = firstBatch;
-      var callbacksToFree = [];
-      var results = [];
-      inCallback++;
-      try {
-        var syncDepth = initialSyncDepth || 0;
-        for(;;){
-          if(batch[2] === expectedBatch) {
-            expectedBatch++;
-            var nCommandsLength = batch[0].length;
-            for (var nCommand = 0; nCommand != nCommandsLength; nCommand++) {
-              var cmd = batch[0][nCommand];
-              if (cmd.Left) {
-                var d = cmd.Left;
-                switch (d.tag) {
-                case "FreeRef":
-                  var refsToFree = jsaddle_free.get(d.contents[0]) || [];
-                  refsToFree.push(d.contents[1]);
-                  jsaddle_free.set(d.contents[0], refsToFree);
-                  break;
-                case "FreeRefs":
-                  var refsToFree = jsaddle_free.get(d.contents) || [];
-                  for(var nRef = 0; nRef != refsToFree.length; nRef++)
-                    jsaddle_values.delete(refsToFree[nRef]);
-                  jsaddle_free.delete(d.contents);
-                  break;
-                case "SetPropertyByName":
-                  jsaddle_values.get(d.contents[0])[d.contents[1]]=jsaddle_values.get(d.contents[2]);
-                  break;
-                case "SetPropertyAtIndex":
-                  jsaddle_values.get(d.contents[0])[d.contents[1]]=jsaddle_values.get(d.contents[2]);
-                  break;
-                case "EvaluateScript":
-                  var n = d.contents[1];
-                  jsaddle_values.set(n, eval(d.contents[0]));
-                  break;
-                case "StringToValue":
-                  var n = d.contents[1];
-                  jsaddle_values.set(n, d.contents[0]);
-                  break;
-                case "JSONValueToValue":
-                  var n = d.contents[1];
-                  jsaddle_values.set(n, d.contents[0]);
-                  break;
-                case "GetPropertyByName":
-                  var n = d.contents[2];
-                  jsaddle_values.set(n, jsaddle_values.get(d.contents[0])[d.contents[1]]);
-                  break;
-                case "GetPropertyAtIndex":
-                  var n = d.contents[2];
-                  jsaddle_values.set(n, jsaddle_values.get(d.contents[0])[d.contents[1]]);
-                  break;
-                case "NumberToValue":
-                  var n = d.contents[1];
-                  jsaddle_values.set(n, d.contents[0]);
-                  break;
-                case "NewEmptyObject":
-                  var n = d.contents;
-                  jsaddle_values.set(n, {});
-                  break;
-                case "NewAsyncCallback":
-                  (function() {
-                    var nFunction = d.contents;
-                    var func = function() {
-                      var nFunctionInFunc = ++jsaddle_index;
-                      jsaddle_values.set(nFunctionInFunc, func);
-                      var nThis = ++jsaddle_index;
-                      jsaddle_values.set(nThis, this);
-                      var args = [];
-                      for (var i = 0; i != arguments.length; i++) {
-                        var nArg = ++jsaddle_index;
-                        jsaddle_values.set(nArg, arguments[i]);
-                        args[i] = nArg;
-                      }
-                      sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
-                    };
-                    jsaddle_values.set(nFunction, func);
-                  })();
-                  break;
-                case "NewSyncCallback":
-                  (function() {
-                    var nFunction = d.contents;
-                    var func = function() {
-                      var nFunctionInFunc = ++jsaddle_index;
-                      jsaddle_values.set(nFunctionInFunc, func);
-                      var nThis = ++jsaddle_index;
-                      jsaddle_values.set(nThis, this);
-                      var args = [];
-                      for (var i = 0; i != arguments.length; i++) {
-                        var nArg = ++jsaddle_index;
-                        jsaddle_values.set(nArg, arguments[i]);
-                        args[i] = nArg;
-                      }
-                      if (sendSync || 0) {
-                        if(inCallback > 0) {
-                          sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
-                        } else {
-                          runBatch(sendSync ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]}), 1);
-                        }
-                      } else {
-                        sendAPI ({"tag": "Callback", "contents": [lastResults[0], lastResults[1], nFunction, nFunctionInFunc, nThis, args]});
-                      }
-                    };
-                    jsaddle_values.set(nFunction, func);
-                  })();
-                  break;
-                case "FreeCallback":
-                  callbacksToFree.push(d.contents);
-                  break;
-                case "CallAsFunction":
-                  var n = d.contents[3];
-                  jsaddle_values.set(n,
-                                     jsaddle_values.get(d.contents[0]).apply(jsaddle_values.get(d.contents[1]),
-                                                                             d.contents[2].map(function(arg){return jsaddle_values.get(arg);})));
-                  break;
-                case "CallAsConstructor":
-                  var n = d.contents[2];
-                  var r;
-                  var f = jsaddle_values.get(d.contents[0]);
-                  var a = d.contents[1].map(function(arg){return jsaddle_values.get(arg);});
-                  switch(a.length) {
-                  case 0 : r = new f(); break;
-                  case 1 : r = new f(a[0]); break;
-                  case 2 : r = new f(a[0],a[1]); break;
-                  case 3 : r = new f(a[0],a[1],a[2]); break;
-                  case 4 : r = new f(a[0],a[1],a[2],a[3]); break;
-                  case 5 : r = new f(a[0],a[1],a[2],a[3],a[4]); break;
-                  case 6 : r = new f(a[0],a[1],a[2],a[3],a[4],a[5]); break;
-                  case 7 : r = new f(a[0],a[1],a[2],a[3],a[4],a[5],a[6]); break;
-                  default:
-                    var ret;
-                    var temp = function() {
-                      ret = f.apply(this, a);
-                    };
-                    temp.prototype = f.prototype;
-                    var i = new temp();
-                    if(ret instanceof Object)
-                      r = ret;
-                    else {
-                      i.constructor = f;
-                      r = i;
-                    }
-                  }
-                  jsaddle_values.set(n, r);
-                  break;
-                case "NewArray":
-                  var n = d.contents[1];
-                  jsaddle_values.set(n, d.contents[0].map(function(v){return jsaddle_values.get(v);}));
-                  break;
-                case "SyncWithAnimationFrame":
-                  var n = d.contents;
-                  jsaddle_values.set(n, timestamp);
-                  break;
-                case "StartSyncBlock":
-                  syncDepth++;
-                  break;
-                case "EndSyncBlock":
-                  syncDepth--;
-                  break;
-                default:
-                  sendAPI ({"tag": "ProtocolError", "contents": e.data});
-                  return;
-                }
-              } else {
-                var d = cmd.Right;
-                switch (d.tag) {
-                case "ValueToString":
-                  var val = jsaddle_values.get(d.contents);
-                  var s = val === null ? "null" : val === undefined ? "undefined" : val.toString();
-                  results.push({"tag": "ValueToStringResult", "contents": s});
-                  break;
-                case "ValueToBool":
-                  results.push({"tag": "ValueToBoolResult", "contents": jsaddle_values.get(d.contents) ? true : false});
-                  break;
-                case "ValueToNumber":
-                  results.push({"tag": "ValueToNumberResult", "contents": Number(jsaddle_values.get(d.contents))});
-                  break;
-                case "ValueToJSON":
-                  var s = jsaddle_values.get(d.contents) === undefined ? "" : JSON.stringify(jsaddle_values.get(d.contents));
-                  results.push({"tag": "ValueToJSONResult", "contents": s});
-                  break;
-                case "ValueToJSONValue":
-                  results.push({"tag": "ValueToJSONValueResult", "contents": jsaddle_values.get(d.contents)});
-                  break;
-                case "DeRefVal":
-                  var n = d.contents;
-                  var v = jsaddle_values.get(n);
-                  var c = (v === null           ) ? [0, ""] :
-                      (v === undefined      ) ? [1, ""] :
-                      (v === false          ) ? [2, ""] :
-                      (v === true           ) ? [3, ""] :
-                      (typeof v === "number") ? [-1, v.toString()] :
-                      (typeof v === "string") ? [-2, v]
-                      : [-3, ""];
-                  results.push({"tag": "DeRefValResult", "contents": c});
-                  break;
-                case "IsNull":
-                  results.push({"tag": "IsNullResult", "contents": jsaddle_values.get(d.contents) === null});
-                  break;
-                case "IsUndefined":
-                  results.push({"tag": "IsUndefinedResult", "contents": jsaddle_values.get(d.contents) === undefined});
-                  break;
-                case "InstanceOf":
-                  results.push({"tag": "InstanceOfResult", "contents": jsaddle_values.get(d.contents[0]) instanceof jsaddle_values.get(d.contents[1])});
-                  break;
-                case "StrictEqual":
-                  results.push({"tag": "StrictEqualResult", "contents": jsaddle_values.get(d.contents[0]) === jsaddle_values.get(d.contents[1])});
-                  break;
-                case "PropertyNames":
-                  var result = [];
-                  for (name in jsaddle_values.get(d.contents)) { result.push(name); }
-                  results.push({"tag": "PropertyNamesResult", "contents": result});
-                  break;
-                case "Sync":
-                  results.push({"tag": "SyncResult", "contents": []});
-                  break;
-                default:
-                  results.push({"tag": "ProtocolError", "contents": e.data});
-                }
-              }
-            }
-            if(syncDepth <= 0) {
-              lastResults = [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}];
-              sendAPI ({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
-              break;
-            } else {
-              if (sendSync || 0) {
-                lastResults = [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}];
-                batch = sendSync ({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
-                results = [];
-                callbacksToFree = [];
-              } else {
-                sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Success", "contents": [callbacksToFree, results]}]});
-                break;
-              }
-            }
-          } else {
-            if(syncDepth <= 0) {
-              break;
-            } else {
-              if (sendSync || 0) {
-                if(batch[2] === expectedBatch - 1) {
-                  batch = sendSync({"tag": "BatchResults", "contents": [lastResults[0], lastResults[1]]});
-                } else {
-                  batch = sendSync({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
-                }
-                results = [];
-                callbacksToFree = [];
-              } else {
-                sendAPI ({"tag": "Duplicate", "contents": [batch[2], expectedBatch]});
-                break;
-              }
-            }
-          }
-        }
-      }
-      catch (err) {
-        console.log(err);
-        var n = ++jsaddle_index;
-        jsaddle_values.set(n, err);
-        sendAPI ({"tag": "BatchResults", "contents": [batch[2], {"tag": "Failure", "contents": [callbacksToFree, results, n]}]});
-      }
-      if(inCallback == 1) {
-        while(asyncBatch !== null) {
-          var b = asyncBatch;
-          asyncBatch = null;
-          if(b[2] == expectedBatch) runBatch(b);
-        }
-      }
-      inCallback--;
-    };
-    if(batch[1] && (initialSyncDepth || 0) === 0) {
-      window.requestAnimationFrame(processBatch);
+  Queue.js
+
+  A function to represent a queue
+
+  Created by Kate Morley - http://code.iamkate.com/ - and released under the terms
+  of the CC0 1.0 Universal legal code:
+
+  http://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+  */
+
+  /* Creates a new queue. A queue is a first-in-first-out (FIFO) data structure -
+   * items are added to the end of the queue and removed from the front.
+   */
+  function Queue(){
+
+    // initialise the queue and offset
+    var queue  = [];
+    var offset = 0;
+
+    // Returns the length of the queue.
+    this.getLength = function(){
+      return (queue.length - offset);
     }
-    else {
-      processBatch(window.performance ? window.performance.now() : null);
+
+    // Returns true if the queue is empty, and false otherwise.
+    this.isEmpty = function(){
+      return (queue.length == 0);
+    }
+
+    /* Enqueues the specified item. The parameter is:
+     *
+     * item - the item to enqueue
+     */
+    this.enqueue = function(item){
+      queue.push(item);
+    }
+
+    /* Enqueues the specified items; faster than calling 'enqueue'
+     * repeatedly. The parameter is:
+     *
+     * items - an array of items to enqueue
+     */
+    this.enqueueArray = function(items){
+      queue.push.apply(queue, items);
+    }
+
+    /* Dequeues an item and returns it. If the queue is empty, the value
+     * 'undefined' is returned.
+     */
+    this.dequeue = function(){
+
+      // if the queue is empty, return immediately
+      if (queue.length == 0) return undefined;
+
+      // store the item at the front of the queue
+      var item = queue[offset];
+
+      // increment the offset and remove the free space if necessary
+      if (++ offset * 2 >= queue.length){
+        queue  = queue.slice(offset);
+        offset = 0;
+      }
+
+      // return the dequeued item
+      return item;
+
+    }
+
+    /* Returns the item at the front of the queue (without dequeuing it). If the
+     * queue is empty then undefined is returned.
+     */
+    this.peek = function(){
+      return (queue.length > 0 ? queue[offset] : undefined);
+    }
+
+  }
+  /* End Queue.js */
+
+  var vals = new Map();
+  var responses = [];
+  var sendRspScheduled = false;
+  vals.set(1, global);
+  var nextValId = -1;
+  var unwrapVal = function(valId) {
+    if(typeof valId === 'object') {
+      if(valId === null) {
+        return null;
+      } else if(valId.length === 0) {
+        return undefined;
+      } else {
+        return vals.get(valId[0]);
+      }
+    } else {
+      return valId;
     }
   };
+  var wrapValWithDefault = function(val, def) {
+    switch(typeof val) {
+    case 'undefined':
+      return [];
 
-  runBatch(batch);
+    case 'boolean':
+    case 'number':
+    case 'string':
+      return val;
+
+    case 'object':
+      if(val === null) {
+        return null;
+      }
+      // Fall through
+    default:
+      if(def) {
+        return [def];
+      }
+      var valId = nextValId--;
+      vals.set(valId, val);
+      return [valId];
+    }
+  };
+  var wrapVal = function(val) {
+    return wrapValWithDefault(val);
+  };
+  var doSendRsp = function () {
+    if (responses.length > 0) {
+      var responses_ = responses;
+      responses = [];
+      sendRsp(responses_);
+    }
+  };
+  var appendRsp = function(rsp) {
+    responses.push(rsp);
+    if (responses.length >= RESPONSE_BUFFER_MAX_SIZE) {
+      doSendRsp();
+    } else {
+      if (sendRspScheduled === false) {
+        sendRspScheduled = true;
+        // Timeout of 0 interferes with batching, and 1 ms is a very high value.
+        // But because we use TriggerSendRsp, this setTimeout is redundant when the jsaddle is active.
+        // Without TriggerSendRsp the performance is bad for 0 and terribly bad for 1 ms.
+        // This is useful only when jsaddle is idle, and its desirable to clear the response pipeline.
+        setTimeout(function() {
+          sendRspScheduled = false;
+          doSendRsp();
+        }, 1);
+      };
+    };
+  };
+  var sendRspImmediate = function(rsp) {
+    responses.push(rsp);
+    doSendRsp();
+  };
+  var result = function(ref, val) {
+    vals.set(ref, val);
+    appendRsp({
+      'tag': 'Result',
+      'contents': [
+        ref,
+        wrapValWithDefault(val, [])
+      ]
+    });
+  };
+  var syncRequests = new Queue();
+  var getNextSyncRequest = function() {
+    if(syncRequests.isEmpty()) {
+      // Make sure all pending responses are sent
+      doSendRsp();
+      syncRequests.enqueueArray(processSyncCommand({
+        'tag': 'Continue',
+        'contents': []
+      }));
+    }
+    return syncRequests.dequeue();
+  };
+  var syncDepth = 0;
+  var processAllEnqueuedReqs = function() {
+    while(!syncRequests.isEmpty()) {
+      var tuple = syncRequests.dequeue();
+      var syncReq = tuple[1];
+      if(syncReq.tag !== 'Req') {
+        throw "processAllEnqueuedReqs: syncReq is not SyncBlockReq_Req; this should never happen because Result/Throw should only be sent while a synchronous request is still in progress";
+      }
+      if (tuple[0] > syncDepth) {
+        console.warn ("processAllEnqueuedReqs: queue contains a request for a frame which has exited");
+        continue;
+      }
+      processSingleReq(syncReq.contents);
+    }
+  };
+  var runSyncCallback = function(callback, that, args) {
+    // Make sure all pending responses are sent
+    doSendRsp();
+    syncDepth++;
+    var newReqs = processSyncCommand({
+      'tag': 'StartCallback',
+      'contents': [
+        syncRequests.isEmpty(),
+        callback,
+        that,
+        args
+      ]
+    });
+    if (newReqs.length > 0) {
+      if ((newReqs[0][1].tag === 'Throw') && (newReqs[0][0] === syncDepth)) {
+        // If we receive the first request as Throw, it means that StartCallback did not happen
+        // So throw immediately
+        var tuple = newReqs.shift();
+        syncRequests.enqueueArray(newReqs);
+        syncDepth--;
+        throw tuple[1].contents[1];
+      } else {
+        syncRequests.enqueueArray(newReqs);
+      }
+    }
+    while(true) {
+      var tuple = getNextSyncRequest();
+      var syncReq = tuple[1];
+      switch (syncReq.tag) {
+      case 'Req':
+        processSingleReq(syncReq.contents);
+        break;
+      case 'Result':
+        syncDepth--;
+        if(syncDepth === 0 && !syncRequests.isEmpty()) {
+          // Ensure that all remaining sync requests are cleared out in a timely
+          // fashion.  Any incoming websocket requests will also run
+          // processAllEnqueuedReqs, but it could potentially be an unlimited
+          // amount of time before the next websocket request comes in.  We
+          // can't process this synchronously because we need to return right
+          // now - it's possible the next item in the queue will make use of
+          // something we were supposed to produce, so if we run that without
+          // returning first, it won't be available
+          setTimeout(processAllEnqueuedReqs, 0);
+        }
+        return syncReq.contents[0];
+      case 'Throw':
+        // Ensure we are throwing at the right depth
+        if (syncDepth !== syncReq.contents[0]) {
+          console.error("Received throw for wrong syncDepth: ", syncDepth, syncReq.contents[0]);
+          continue;
+        };
+        syncDepth--;
+        throw syncReq.contents[1];
+      }
+    }
+  };
+  var deadTries = new Map();
+  var processSingleReq = function(tryReq) {
+    // Ignore requests in dead tries
+    if(deadTries.has(tryReq.tryId)) {
+      if(tryReq.req.tag === 'FinishTry') {
+        // FinishTry must be the last req in the try, so we no longer need to
+        // keep this around
+        deadTries.delete(tryReq.tryId);
+      }
+      return;
+    }
+
+    try {
+      var req = tryReq.req;
+      switch(req.tag) {
+      case 'FreeRef':
+        vals.delete(req.contents[0]);
+        break;
+      case 'NewJson':
+        result(req.contents[1], req.contents[0]);
+        break;
+      case 'GetJson':
+        sendRspImmediate({
+          'tag': 'GetJson',
+          'contents': [
+            req.contents[1],
+            unwrapVal(req.contents[0])
+          ]
+        });
+        break;
+      case 'SyncBlock':
+        runSyncCallback(req.contents[0], [], []);
+        break;
+      case 'NewSyncCallback':
+        result(req.contents[1], function() {
+          return unwrapVal(runSyncCallback(req.contents[0], wrapVal(this), Array.prototype.slice.call(arguments).map(wrapVal)));
+        });
+        break;
+      case 'NewAsyncCallback':
+        var callbackId = req.contents[0];
+        result(req.contents[1], function() {
+          appendRsp({
+            'tag': 'CallAsync',
+            'contents': [
+              callbackId,
+              wrapVal(this),
+              Array.prototype.slice.call(arguments).map(wrapVal)
+            ]
+          });
+        });
+        break;
+      case 'SetProperty':
+        unwrapVal(req.contents[2])[unwrapVal(req.contents[0])] = unwrapVal(req.contents[1]);
+        break;
+      case 'GetProperty':
+        result(req.contents[2], unwrapVal(req.contents[1])[unwrapVal(req.contents[0])]);
+        break;
+      case 'CallAsFunction':
+        result(req.contents[3], unwrapVal(req.contents[0]).apply(unwrapVal(req.contents[1]), req.contents[2].map(unwrapVal)));
+        break;
+      case 'CallAsConstructor':
+        result(req.contents[2], new (Function.prototype.bind.apply(unwrapVal(req.contents[0]), [null].concat(req.contents[1].map(unwrapVal)))));
+        break;
+      case 'FinishTry':
+        sendRspImmediate({
+          'tag': 'FinishTry',
+          'contents': [
+            tryReq.tryId,
+            { 'Right': [] }
+          ]
+        });
+        break;
+      case 'Sync':
+        sendRspImmediate({
+          'tag': 'Sync',
+          'contents': req.contents
+        });
+        break;
+      case 'TriggerSendRsp':
+        doSendRsp();
+        break;
+      default:
+        throw 'processSingleReq: unknown request tag ' + JSON.stringify(req.tag);
+      }
+    } catch(e) {
+      deadTries.set(tryReq.tryId, true);
+      sendRspImmediate({
+        'tag': 'FinishTry',
+        'contents': [
+          tryReq.tryId,
+          { 'Left': wrapVal(e) }
+        ]
+      });
+    }
+  };
+  var processReq = function(req) {
+    processAllEnqueuedReqs();
+    processSingleReq(req);
+  };
+  return {
+    processReq: processReq,
+    processReqs: function(reqs) { for (req of reqs) { processReq(req);}}
+  };
 }
+
 
 // ghcjs helper functions
 function h$isNumber(o) {
