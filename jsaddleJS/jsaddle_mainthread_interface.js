@@ -12,10 +12,11 @@ function jsaddleDriver(wasm_process) {
   var pendingAsyncRequests = [];
 
   var sendScheduled = false;
-  var doOneSend = function () {
+  var doOneWasmCall = function () {
     var rsps = pendingAsyncResponses;
     pendingAsyncResponses = [];
     // console.log(rsps);
+    // Call even if rsps is empty, to get newReqs
     var newReqs = wasm_process.processResult(false, JSON.stringify(rsps));
     if (newReqs.length > 0) {
       // console.log(newReqs);
@@ -28,7 +29,7 @@ function jsaddleDriver(wasm_process) {
     pendingAsyncResponses.push.apply(pendingAsyncResponses, msgs);
     if (sendScheduled == false) {
       sendScheduled = true;
-      window.setTimeout(doOneSend, 1);
+      window.setTimeout(doOneWasmCall, 0);
     }
   };
 
@@ -58,9 +59,9 @@ function jsaddleDriver(wasm_process) {
     while (pendingAsyncRequests.length > 0) {
       // Process all pending messages
       doOneIter();
-      doOneSend();
+      doOneWasmCall();
     }
-    doOneSend();
+    doOneWasmCall();
     window.setTimeout(runOuter, 10);
   }, 0);
 }
