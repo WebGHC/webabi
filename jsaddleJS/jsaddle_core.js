@@ -140,17 +140,17 @@ function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_
     if (responses.length >= RESPONSE_BUFFER_MAX_SIZE) {
       doSendRsp();
     } else {
-      if (sendRspScheduled === false) {
-        sendRspScheduled = true;
-        // Timeout of 0 interferes with batching, and 1 ms is a very high value.
-        // But because we use TriggerSendRsp, this setTimeout is redundant when the jsaddle is active.
-        // Without TriggerSendRsp the performance is bad for 0 and terribly bad for 1 ms.
-        // This is useful only when jsaddle is idle, and its desirable to clear the response pipeline.
-        setTimeout(function() {
-          sendRspScheduled = false;
-          doSendRsp();
-        }, 1);
-      };
+      // if (sendRspScheduled === false) {
+      //   sendRspScheduled = true;
+      //   // Timeout of 0 interferes with batching, and 1 ms is a very high value.
+      //   // But because we use TriggerSendRsp, this setTimeout is redundant when the jsaddle is active.
+      //   // Without TriggerSendRsp the performance is bad for 0 and terribly bad for 1 ms.
+      //   // This is useful only when jsaddle is idle, and its desirable to clear the response pipeline.
+      //   setTimeout(function() {
+      //     sendRspScheduled = false;
+      //     doSendRsp();
+      //   }, 1);
+      // };
     };
   };
   var sendRspImmediate = function(rsp) {
@@ -352,7 +352,10 @@ function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_
   };
   return {
     processReq: processReq,
-    processReqs: function(reqs) { for (req of reqs) { processReq(req);}}
+    processReqs: function(reqs) {
+      for (req of reqs) { processReq(req);}
+      doSendRsp();
+    }
   };
 }
 
