@@ -40,7 +40,7 @@ function jsaddleDriver(wasm_process) {
     return (JSON.parse(retStr));
   };
 
-  var core = jsaddleCoreJs(window, sendRsp, processSyncCommand, 20);
+  var core = jsaddleCoreJs(window, sendRsp, processSyncCommand, 50);
 
   // get the initial command and run it
   var initReqs = wasm_process.processResult(false, "");
