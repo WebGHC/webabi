@@ -8,42 +8,59 @@ function jsaddleDriver(wasm_process) {
   //
   wasm_process.start([], []);
 
-  var pendingAsyncMessages = [];
+  var pendingAsyncResponses = [];
+  var pendingAsyncRequests = [];
 
-  // Store msgs in JSON
-  function sendAPI (msg) {
-    pendingAsyncMessages.push(msg);
-  }
-
-  var sendSync = function (msg) {
-    var str = JSON.stringify([msg]);
-    var retStr = wasm_process.processResult(true, str);
-    return ((JSON.parse(retStr))[0]);
+  var sendScheduled = false;
+  var doOneSend = function () {
+    var rsps = pendingAsyncResponses;
+    pendingAsyncResponses = [];
+    // console.log(rsps);
+    var newReqs = wasm_process.processResult(false, JSON.stringify(rsps));
+    if (newReqs.length > 0) {
+      // console.log(newReqs);
+      pendingAsyncRequests.push.apply(pendingAsyncRequests, JSON.parse(newReqs));
+    }
+    sendScheduled = false;
   };
 
-  var jsaddleHandler = function (str) {
-    if (str !== "") {
-      var batches = JSON.parse(str);
-      for (var i = 0; i < batches.length; i++) {
-        runBatchWrapper(batches[i], sendAPI, sendSync);
-      }
+  var sendRsp = function (msgs) {
+    pendingAsyncResponses.push.apply(pendingAsyncResponses, msgs);
+    if (sendScheduled == false) {
+      sendScheduled = true;
+      window.setTimeout(doOneSend, 1);
     }
   };
+
+  var processSyncCommand = function (msg) {
+    var str = JSON.stringify(msg);
+    // console.log("processSyncCommand", msg);
+    var retStr = wasm_process.processResult(true, str);
+    return (JSON.parse(retStr));
+  };
+
+  var core = jsaddleCoreJs(window, sendRsp, processSyncCommand, 20);
 
   // get the initial command and run it
-  jsaddleHandler(wasm_process.processResult(false, ""));
-  // process async results
+  var initReqs = wasm_process.processResult(false, "");
+  if (initReqs.length == 0) {
+    throw "Did not receive initReqs";
+  }
+  core.processReqs(JSON.parse(initReqs));
+
+  // process async rsps
   window.setTimeout( function runOuter() {
-    var doOneCall = function () {
-      var results = pendingAsyncMessages;
-      pendingAsyncMessages = [];
-      jsaddleHandler(wasm_process.processResult(false, JSON.stringify(results)));
+    var doOneIter = function () {
+      var reqs = pendingAsyncRequests;
+      pendingAsyncRequests = [];
+      core.processReqs(reqs);
     };
-    doOneCall();
-    while (pendingAsyncMessages.length > 0) {
+    while (pendingAsyncRequests.length > 0) {
       // Process all pending messages
-      doOneCall();
+      doOneIter();
+      doOneSend();
     }
-    window.setTimeout(runOuter, 100);
-  }, 100);
+    doOneSend();
+    window.setTimeout(runOuter, 10);
+  }, 0);
 }
