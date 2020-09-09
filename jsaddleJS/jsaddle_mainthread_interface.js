@@ -33,14 +33,17 @@ function jsaddleDriver(wasm_process) {
     }
   };
 
-  var processSyncCommand = function (msg) {
-    var str = JSON.stringify(msg);
+  var processSyncCommandWithRsp = function (msg, rsps) {
+    var rspsAll = pendingAsyncResponses;
+    pendingAsyncResponses = [];
+    rspsAll.push.apply(rspsAll, rsps);
+    var str = JSON.stringify([msg, rspsAll]);
     // console.log("processSyncCommand", msg);
     var retStr = wasm_process.processResult(true, str);
     return (JSON.parse(retStr));
   };
 
-  var core = jsaddleCoreJs(window, sendRsp, processSyncCommand, 50);
+  var core = jsaddleCoreJs(window, sendRsp, processSyncCommandWithRsp, 50);
 
   // get the initial command and run it
   var initReqs = wasm_process.processResult(false, "");

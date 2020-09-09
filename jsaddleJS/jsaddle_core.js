@@ -1,7 +1,7 @@
 // JSaddle JS code
 // This code is copied from jsaddle/js/jsaddle-core.js
 
-function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_SIZE) {
+function jsaddleCoreJs(global, sendRsp, processSyncCommandWithRsp, RESPONSE_BUFFER_MAX_SIZE) {
   /*
 
   Queue.js
@@ -135,6 +135,11 @@ function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_
       sendRsp(responses_);
     }
   };
+  var processSyncCommand = function (msg) {
+    var responses_ = responses;
+    responses = [];
+    return processSyncCommandWithRsp(msg, responses_);
+  };
   var appendRsp = function(rsp) {
     responses.push(rsp);
     if (responses.length >= RESPONSE_BUFFER_MAX_SIZE) {
@@ -170,8 +175,6 @@ function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_
   var syncRequests = new Queue();
   var getNextSyncRequest = function() {
     if(syncRequests.isEmpty()) {
-      // Make sure all pending responses are sent
-      doSendRsp();
       syncRequests.enqueueArray(processSyncCommand({
         'tag': 'Continue',
         'contents': []
@@ -195,8 +198,6 @@ function jsaddleCoreJs(global, sendRsp, processSyncCommand, RESPONSE_BUFFER_MAX_
     }
   };
   var runSyncCallback = function(callback, that, args) {
-    // Make sure all pending responses are sent
-    doSendRsp();
     syncDepth++;
     var newReqs = processSyncCommand({
       'tag': 'StartCallback',
